@@ -13,12 +13,8 @@ dbilnorm2 <- function(x, mu1, mu2, sigma1, sigma2, tau){
   return(y)
 }
 
-dlnorm_test = function(x, mu, sigma) {
-  y = 1 / (x * sigma * sqrt(2 * pi)) * exp(-(log(x) - mu)^2 / (2 * sigma^2))
-  return(y)
-}
 dbilnorm <- function(x, mu1, mu2, sigma1, sigma2, tau){
-  y <- (1-tau)*dlnorm_test(x,mu1,sigma1) + tau*dlnorm_test(x,mu2,sigma2)
+  y <- (1-tau)*dlnorm(x, mu1, sigma1) + tau * dlnorm(x, mu2, sigma2)
   return(y)
 }
 
@@ -64,18 +60,13 @@ for (i in 1:length(num_inbin)) {
 }
 breaks = seq(from = 0, to = 3, by = 0.01)
 hist(jittered_data, breaks=1000)
-#testdata = rbilnorm(10000, 1, 5, 1, 1, 0.6)
-#define starting parameters of the bilognormal model
 mu1 <- -3
 mu2 <- -0.5
 sigma1 <- 0.3
 sigma2 <- 0.4
 tau <- 0.7
-#estim = EM(testdata, mu1, mu2, sigma1, sigma2, tau)
-#print(estim)
 estim = EM(jittered_data, mu1, mu2, sigma1, sigma2, tau)
 print(estim)
-
 
 #optimization 
 #write log likelihood function of binned data
@@ -85,18 +76,34 @@ cdfbilognorm = function(x, mu1, mu2, sigma1, sigma2, tau) {
 }
 
 negloglikelihood = function(par) {
-  logli = 1
+  logli = 0
   mu1 = par[1]
   mu2 = par[2]
   sigma1 = par[3]
   sigma2 = par[4]
   tau = par[5]
   for (i in 1:length(data$X)) {
-    logli = logli * (cdfbilognorm(data$endpoint[i], mu1, mu2, sigma1, sigma2, tau) - 
-                       cdfbilognorm(data$startpoint[i], mu1, mu2, sigma1, sigma2, tau)) ^ (num_inbin[i])
+    logli = logli + (num_inbin[i]) * log((cdfbilognorm(data$endpoint[i], mu1, mu2, sigma1, sigma2, tau) - 
+                       cdfbilognorm(data$startpoint[i], mu1, mu2, sigma1, sigma2, tau)))
   }
-  return(-log(logli))
+  return(-logli)
 }
 out = optim(estim, negloglikelihood)
+estim_opt = as.numeric(unlist(out[1]))
+mu1_opt = estim_opt[1]
+mu2_opt = estim_opt[2]
+sigma1_opt = estim_opt[3]
+sigma2_opt = estim_opt[4]
+tau_opt = estim_opt[5]
+x_grid = seq(from = 0, to = 3, by = 0.01)
+pdf_est = dbilnorm(x_grid, mu1_opt, mu2_opt, sigma1_opt, sigma2_opt, tau_opt)
+jittered_pdf = density(x = jittered_data)
+plot(jittered_pdf)
+lines(x_grid, pdf_est, col = "red")
 
 
+width = rep(0, length(data$X))
+for (i in 1:length(data$X)) {
+  width[i] = data$endpoint[i] - data$startpoint[i]
+}
+barplot(height = data$retained...., width = width)
