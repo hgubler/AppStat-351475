@@ -1,30 +1,60 @@
 ---
 title: "Project-1"
-author: "Hannes"
+author: "Hannes Gubler"
 date: "2023-02-20"
-output: html_document
+output: bookdown::html_document2
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+# Introduction
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+In this report, we work with data that contains diameter bins of snowflakes described by startpoint and endpoint. More precisely, it describes the total number of particles measured and the fraction of particles belonging to each diameter bin.
+Expert knowledge tells us that a mixture of two log-normal distributions is a good model for the data.
+The outline of the remainder of this report is as follows. In Section 2, we verify if the expert knowledge of a mixture of two log-normal distributions is a valid assumption. After that in Section 3 we will use the EM algorithm and an optimization algorithm to estimate the five parameters that describe distribution. Finally, in section 4 we will use parametric bootstrap to test whether the diameters come from a bi-log-normal distribution.
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+# Descriptive Data Exploration
 
-```{r cars}
-summary(cars)
+Since we already have access to the expert knowledge telling us that the bi-log-normal distribution is a good model for the data, our main goal in this section is to check whether this is a viable assumption. It would be easy to just plot a histogram of the data, but since we only have the data in bins and not exactly, it will be slightly more difficult. So before plotting the histogram, we will jitter the data using a uniform distribution inside each bin. Also, we will set the endpoint of the last bin to 3.25 to make the size of the last bin more comparable to the rest.
+
+```{r histogram, echo=FALSE, fig.align="center", fig.cap="Histogram for the snowflake diameters after jittering the data using a uniform distribution in each bin."}
+library(ggplot2)
+data = read.csv(file = "/Users/hannesgubler/Documents/R Repositories/AppStat-351475/Project-1/1_snow_particles.csv")
+num_inbin = rep(0, length(data$X))
+num_part = data$particles.detected[1]
+for (i in 1:length(data$X)) {
+  num_inbin[i] = round(data$retained....[i] / 100 * num_part) #rounded number of data in the i-th bin, need to jitter the data in the next step
+}
+# jittering the data
+n = sum(num_inbin) #cnumber of data points
+counter = 0
+jittered_data = rep(0, n) 
+data$endpoint[52] = 3.25 # s.t. all the bins are of comparable size
+for (i in 1:length(num_inbin)) {
+  interval_length = data$endpoint[i] - data$startpoint[i]
+  for(j in 1:num_inbin[i]) {
+    jittered_data[j + counter] = data$startpoint[i] + 
+      runif(1, min = 0, max = interval_length)
+  }
+  counter = counter + num_inbin[i]
+}
+breaks = seq(from = 0, to = 3, by = 0.01)
+ggplot(data.frame(jittered_data), aes(x = jittered_data)) + 
+  geom_histogram(color="black", binwidth = 0.05) + 
+  labs(title = "Histogram of Jittered Data", x = "Jittered Diameters")
+#hist(jittered_data, breaks=1000)
 ```
 
-## Including Plots
+We can see that the assumption of a bi-log-normal distribution seems valid as we have two bumps that are slightly right scewed, as we would expect from a mixture of two log-normal distributions.
 
-You can also embed plots, for example:
+# Parameter estimation
 
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
+In this section, we will estimate the parameters for the jittered data assuming it follows a bi-log-normal distribution. We will proceed as follows: First, using the EM algorithm, we estimate the parameters $\mu_1, \mu_2, \sigma_1, \sigma_2$ and $\tau$ for the jittered data. After that, we optimize the log likelihood of the binned data (not the jittered data as with the EM algorithm) starting with the values given by the EM algorithm.
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+## EM algorithm
+
+To estimate the parameters using the EM algorithm, we have to set a starting value for each parameter $\mu_1, \mu_2, \sigma_1, \sigma_2$ and $\tau$. Hence it is useful to look back on our histogram \@ref(fig:histogram). Since the expectation and variance of a lognormal distribution with parameters $\mu_1, \sigma_1$ are given by $\exp(\mu_1 + \frac{\sigma_1^2}{2})$ and $(\exp(\sigma_1^2)-1)\exp(2\mu_1+\sigma_1^2)$, we set our starting values to TBD.
+
+## Optimization

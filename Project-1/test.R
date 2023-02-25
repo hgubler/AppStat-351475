@@ -49,7 +49,7 @@ for (i in 1:length(data$X)) {
 n = sum(num_inbin)
 counter = 0
 jittered_data = rep(0, n)
-data$endpoint[52] = 3.25
+data$endpoint[52] = 3.25 
 for (i in 1:length(num_inbin)) {
   interval_length = data$endpoint[i] - data$startpoint[i]
   for(j in 1:num_inbin[i]) {

@@ -20,30 +20,7 @@ Expert knowledge: A mixture of two log-normal distributions is a good model for 
 ## Reading and Exploring data
 
 ```{r}
-read_data <- function(Rmarkdown=T){
-  if(Rmarkdown){
-    Data <- read.csv("../Project-0/CEO_compensations.csv")
-  }else{
-    Data <- read.csv("./Project-0/CEO_compensations.csv")
-  }
-  return(Data)
-}
-Data <- read_data()
-# Data <- read_data(F)
-str(Data)
-names(Data) <- tolower(names(Data))
 
-Data %>% mutate(company=as.numeric(as.factor(company)), birth=as.numeric(as.factor(birth))) %>%
-  pivot_longer(everything()) %>%
-  ggplot(aes(value)) + facet_wrap(~ name, scales = "free") + geom_histogram()
-
-Data %>% select(-company,-birth) %>% pairs()
-
-Data <- Data %>% mutate(backgrd=as.factor(backgrd), educatn=as.factor(educatn), comp=log(comp)) %>%
-  select(-birth,-company)
-
-Data %>% mutate(backgrd=as.numeric(backgrd), educatn=as.numeric(educatn)) %>% pivot_longer(everything()) %>%
-  ggplot(aes(value)) + facet_wrap(~ name, scales = "free") + geom_histogram()
 ```
 
 Education level and background should probably be factors, and we are discarding `birth` and `company` since those are mostly unique and hence we do not have enough data to take them into account in modeling. For the response, we take logarithm for obvious reasons.
@@ -51,21 +28,13 @@ Education level and background should probably be factors, and we are discarding
 ## First Model
 
 ```{r}
-m1 <- lm(comp~., data=Data)
-anova(m1)
-m0 <- lm(comp~.-backgrd-tenure-exper-val, data=Data)
-anova(m0,m1)
-m1 <- m0
-anova(m1)
+
 ```
 
 Did we miss anything:
 
 ```{r}
-resData <- Data
-resData$res <- resid(m1)
-resData %>% mutate(backgrd=as.numeric(backgrd), educatn=as.numeric(educatn)) %>% pivot_longer(colnames(resData)[colnames(resData) != "res"]) %>%
-  ggplot(aes(y=res,x=value)) + facet_wrap(~ name, scales = "free") + geom_point()
+
 ```
 
 There is some residual dependency on `sales`, which should have been taken on a log-scale in the first place. Let's do the same again but with the log:
