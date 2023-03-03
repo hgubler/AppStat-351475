@@ -45,7 +45,7 @@ num_part = data$particles.detected[1]
 for (i in 1:length(data$X)) {
   num_inbin[i] = round(data$retained....[i] / 100 * num_part)
 }
-#jittering the data
+#jitter the data
 n = sum(num_inbin)
 counter = 0
 jittered_data = rep(0, n)
@@ -59,7 +59,8 @@ for (i in 1:length(num_inbin)) {
   counter = counter + num_inbin[i]
 }
 breaks = seq(from = 0, to = 3, by = 0.01)
-hist(jittered_data, breaks=1000)
+hist(jittered_data, breaks=1000) # histogram of jittered data
+#barplot(height = data$retained...., width = width) # histogram with bins of the data
 mu1 <- -3
 mu2 <- -0.5
 sigma1 <- 0.3
@@ -106,4 +107,110 @@ width = rep(0, length(data$X))
 for (i in 1:length(data$X)) {
   width[i] = data$endpoint[i] - data$startpoint[i]
 }
-barplot(height = data$retained...., width = width)
+
+# bootstrap
+n_bootstrap = 2000 # number of bootstrap samples
+ndata_boot = 1000 # number of data in bootstrap sample
+bootstrap_data = matrix(nrow = ndata_boot, ncol = n_bootstrap) 
+for (i in 1:n_bootstrap) {
+  set.seed(i) # different seed for each bootstrap data
+  bootstrap_data[, i] = rbilnorm(ndata_boot, mu1_opt, mu2_opt, sigma1_opt, sigma2_opt, tau_opt)
+}
+#bin the bootstrap data
+binned_bootstrap_data = matrix(nrow = length(data$X), ncol = n_bootstrap)
+for (i in 1:n_bootstrap) {
+  for (j in 1:length(data$X)) {
+    counter = 0
+    for (k in 1:ndata_boot) {
+      if (data$startpoint[j] <= bootstrap_data[k, i] && data$endpoint[j] > bootstrap_data[k, i]) {
+        counter = counter + 1
+      }
+    }
+    binned_bootstrap_data[j, i] = counter # number of data points in j-th bin
+  }
+}
+
+# jitter the binned bootstrap samples
+jittered_boot_data = matrix(nrow = ndata_boot, ncol = n_bootstrap)
+for (k in 1:n_bootstrap) {
+  counter = 0
+  for (i in 1:length(data$X)) {
+    interval_length = data$endpoint[i] - data$startpoint[i]
+    for(j in 1:binned_bootstrap_data[i, k]) {
+      if (binned_bootstrap_data[i, k] == 0) {
+        next
+      }
+      jittered_boot_data[j + counter, k] = data$startpoint[i] + 
+        runif(1, min = 0, max = interval_length)
+    }
+    counter = counter + binned_bootstrap_data[i, k]
+  }
+}
+
+#estimate the parameters for each bootstrap sample
+estim_boot = matrix(nrow = 5, ncol = n_bootstrap)
+for (i in 1:n_bootstrap) {
+  estim_boot[, i] = EM(jittered_boot_data[, i], mu1, mu2, sigma1, sigma2, tau)
+}
+estim_boot_opt = matrix(nrow = 5, ncol = n_bootstrap)
+for (i in 1:n_bootstrap) {
+  out = optim(estim_boot[, i], negloglikelihood)
+  estim_boot_opt[, i] = as.numeric(unlist(out[1]))
+}
+ 
+#Calculate the kolmogorov smirnoff statisitc
+#create data to use for ecdf for binned data
+counter = 0
+ecdf_data = rep(0, n)
+for (i in 1:length(num_inbin)) {
+  interval_length = data$endpoint[i] - data$startpoint[i]
+  for(j in 1:num_inbin[i]) {
+    ecdf_data[j + counter] = data$startpoint[i] + interval_length / j
+  }
+  counter = counter + num_inbin[i]
+}
+ecdf_binned = ecdf(ecdf_data)
+grid = seq(from = 0, to = 3.25, by = 0.01)
+kol_smir = 0 
+for (i in 1:length(grid)) {
+  a = abs(ecdf_binned(grid[i]) - 
+            cdfbilognorm(grid[i], mu1_opt, mu2_opt, sigma1_opt, sigma2_opt, tau_opt))
+  if (a > kol_smir) {
+    kol_smir = a
+  }
+}
+
+#calculate T_b^*
+T_b = rep(0, n_bootstrap)
+for (k in 1:n_bootstrap) {
+  counter = 0
+  ecdf_boot_data = rep(0, ndata_boot)
+  for (i in 1:length(data$X)) {
+    interval_length = data$endpoint[i] - data$startpoint[i]
+    for(j in 1:binned_bootstrap_data[i, k]) {
+      if (binned_bootstrap_data[i, k] == 0) {
+        next
+      }
+      ecdf_boot_data[j + counter] = data$startpoint[i] + interval_length / j
+    }
+    counter = counter + binned_bootstrap_data[i, k]
+  }
+  ecdf_boot = ecdf(ecdf_boot_data)
+  for (j in 1:length(grid)) {
+    a = abs(ecdf_boot(grid[j]) - 
+              cdfbilognorm(grid[j], estim_boot_opt[1, k], estim_boot_opt[2, k], 
+                           estim_boot_opt[3, k], estim_boot_opt[4, k], estim_boot_opt[5, k]))
+    if (a > T_b[k]) {
+      T_b[k] = a
+    }
+  }
+}
+
+#calculate the estimated p value
+a = 0
+for (k in 1:n_bootstrap) {
+  if (T_b[k] > kol_smir) {
+    a = a + 1
+  }
+}
+p = 1 / (n_bootstrap + 1) * (a + 1)
