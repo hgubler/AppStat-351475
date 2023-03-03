@@ -1,7 +1,7 @@
 ---
 title: "Project-1"
 author: "Hannes Gubler"
-date: "2023-02-20"
+date: "2023-03-03"
 output: bookdown::html_document2
 ---
 
@@ -11,9 +11,9 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Introduction
 
-In this report, we work with data that contains diameter bins of snowflakes described by startpoint and endpoint. More precisely, it describes the total number of particles measured and the fraction of particles belonging to each diameter bin.
-Expert knowledge tells us that a mixture of two log-normal distributions is a good model for the data.
-The outline of the remainder of this report is as follows. In Section 2, we verify if the expert knowledge of a mixture of two log-normal distributions is a valid assumption. After that in Section 3 we will use the EM algorithm and an optimization algorithm to estimate the five parameters that describe distribution. Finally, in section 4 we will use parametric bootstrap to test whether the diameters come from a bi-log-normal distribution.
+In this report, we work with data that contains diameter bins of snowflakes described by startpoint and endpoint. More precisely, it describes the total number of particles measured and the percentage of particles belonging to each diameter bin. The data comes from the Laboratory of Cryospheric sciences at EPFL.
+Expert knowledge suggests us that a mixture of two log-normal distributions (bi-log-normal distribution) is a good model for the data.
+The outline of the remainder of this report is as follows. In Section 2, we visually verify if the expert knowledge of a bi-log-normal distribution is a valid assumption. After that, in Section 3, we will use the EM algorithm and an optimization algorithm to estimate the five parameters that describe distribution. Finally we will use parametric bootstrap to test whether the snowflake diameters come from a bi-log-normal distribution.
 
 # Descriptive Data Exploration
 
@@ -21,14 +21,14 @@ Since we already have access to the expert knowledge telling us that the bi-log-
 
 ```{r histogram, echo=FALSE, fig.align="center", fig.cap="Histogram for the snowflake diameters after jittering the data using a uniform distribution in each bin."}
 library(ggplot2)
-data = read.csv(file = "/Users/hannesgubler/Documents/R Repositories/AppStat-351475/Project-1/1_snow_particles.csv")
+data = read.csv(file = "1_snow_particles.csv")
 num_inbin = rep(0, length(data$X)) # store the number of datapoints in each bin here
 num_part = data$particles.detected[1] # number of total datapoints
 for (i in 1:length(data$X)) {
   num_inbin[i] = round(data$retained....[i] / 100 * num_part) #rounded number of data in the i-th bin, need to jitter the data in the next step
 }
 # jittering the data
-set.seed(1) # set a seed before jitter the data using a uniform distribution
+set.seed(100) # set a seed before jitter the data using a uniform distribution
 n = sum(num_inbin) #cnumber of data points
 counter = 0
 jittered_data = rep(0, n) 
@@ -51,13 +51,13 @@ We can see that the assumption of a bi-log-normal distribution seems valid as we
 
 # Parameter estimation
 
-In this section, we will estimate the parameters for the jittered data assuming it follows a bi-log-normal distribution. We will proceed as follows: First, using the EM algorithm, we estimate the parameters $\mu_1, \mu_2, \sigma_1, \sigma_2$ and $\tau$ for the jittered data. After that, we optimize the log likelihood of the binned data (not the jittered data as with the EM algorithm) starting with the values given by the EM algorithm.
+In this section, we will estimate the parameters for the jittered data assuming it follows a bi-log-normal distribution. We will proceed as follows: First, using the EM algorithm, we estimate the parameters $\mu_1, \mu_2, \sigma_1, \sigma_2$ and $\tau$ for the jittered data. After that, we optimize the log likelihood of the binned data (not the jittered data as with the EM algorithm) starting with the values given by the EM algorithm. All of these steps will of course be done assuming our data follows the bi-log-normal distribution.
 
 ## EM algorithm
 
-To estimate the parameters using the EM algorithm, we have to set a starting value for each parameter $\mu_1, \mu_2, \sigma_1, \sigma_2$ and $\tau$. Hence it is useful to look back on our histogram \@ref(fig:histogram). Since the expectation and variance of a lognormal distribution with parameters $\mu_1, \sigma_1$ are given by $\exp(\mu_1 + \frac{\sigma_1^2}{2})$ and $(\exp(\sigma_1^2)-1)\exp(2\mu_1+\sigma_1^2)$, we set our starting values to $\mu_1 = -3, \mu_2 = -0.5, \sigma_1 = 0.3, \sigma_2 = 0.4$ and $\tau = 0.7$. We will use the results of the EM algorithm in the next section.
-```{r EM algorithm, echo=FALSE}
-# function to sample from a bi-log-normal distribution
+To estimate the parameters using the EM algorithm, we have to set a starting value for each parameter $\mu_1, \mu_2, \sigma_1, \sigma_2$ and $\tau$. Hence it is useful to look back on our histogram (Figure \@ref(fig:histogram)). Since the expectation and variance of a log-normal distribution with parameters $\mu, \sigma$ are given by $\exp(\mu + \frac{\sigma^2}{2})$ and $(\exp(\sigma^2)-1)\exp(2\mu+\sigma^2)$, we set our starting values to $\mu_1 = -3, \mu_2 = -0.5, \sigma_1 = 0.3, \sigma_2 = 0.4$ and $\tau = 0.7$. We will use the results of the EM algorithm in the next section. The estimates of the EM algorithm give us another opportunity to check the assumption of a bi-log-normal distribution: We can create a plot with the kernel density estimator (Gaussian kernel) and the density of a bi-log-normal distribution parametrized by the results of the EM algorithm.
+```{r EM algorithm, echo=FALSE, fig.align='center', fig.cap="Kernel density estimate (gaussian kernel) of the jittered data  together with the density obtained by the bi-log-normal model with the parameters obtained by the EM algorithm."}
+# function to sample rom a bi-log-normal distribution
 rbilnorm <- function(N, mu1, mu2, sigma1, sigma2, tau){
   ind <- I(runif(N) > tau)
   X <- rep(0,N)
@@ -100,12 +100,22 @@ sigma1 <- 0.3
 sigma2 <- 0.4
 tau <- 0.7
 estim = EM(jittered_data, mu1, mu2, sigma1, sigma2, tau)
+#plot the kernel density estimator and bi-log-normal density
+grid = seq(from = 0, to = 3.25, by = 0.01)
+pdf_est = dbilnorm(grid, estim[1], estim[2], estim[3], estim[4], estim[5])
+ggplot() + geom_line(aes(x = grid, y = pdf_est, color = "Bi-Log-Normal Density")) + geom_density(aes(x = jittered_data, color = "Kernel Density Estimate"), kernel = "gaussian") + 
+  labs(title = "Bi-Log-Normal Density and Kernel Density Estimate", x = "x", y = "y") + 
+  scale_color_manual(name = "",
+                     breaks=c('Kernel Density Estimate', 'Bi-Log-Normal Density'),
+                     values=c('Kernel Density Estimate'='red', 'Bi-Log-Normal Density'='blue'))
 ```
+
+We can see two very similar curves, supporting our assumption of the bi-log-normal distribution. Also this plot is useful to see that the EM algorithm worked and converged to a somewhat useful solution.
 
 ## Optimization
 
-Since we performed the EM algorithm on the jittered data, we didn't we maximize the true log-likelihood of the binned data. But we should be close to the maximum of the binned log likelihood, hence we can use them as starting values to perform an optimization on the binned log likelihood. We use the BFGS optimization algorithm. Once we have the optimized parameters for our bi-log-normal model, we plot the density of this model together with the kernel density estimator of our jittered data, using a gaussian kernel.
-```{r optimization, echo=FALSE, fig.align='center', fig.cap="Kernel density estimate of the jittered data together with the density obtained by the bi-log-normal model with our optimized parameters"}
+Since we performed the EM algorithm on the jittered data, we didn't we maximize the true log-likelihood of the binned data. But the results should be close to the maximum of the binned log likelihood, hence we can use them as starting values to perform an optimization on the binned log likelihood. We use the Nelder-Mead optimization algorithm.
+```{r optimization, echo=FALSE}
 # function calculating the cdf of a bilognornal distribution<
 cdfbilognorm = function(x, mu1, mu2, sigma1, sigma2, tau) {
   y <- (1 - tau) * plnorm(x, mu1, sigma1) + tau * plnorm(x, mu2, sigma2)
@@ -133,17 +143,9 @@ mu2_opt = estim_opt[2]
 sigma1_opt = estim_opt[3]
 sigma2_opt = estim_opt[4]
 tau_opt = estim_opt[5]
-grid = seq(from = 0, to = 3.25, by = 0.01)
-pdf_est = dbilnorm(grid, mu1_opt, mu2_opt, sigma1_opt, sigma2_opt, tau_opt)
-jittered_pdf = density(x = jittered_data, kernel = "gaussian")
-ggplot() + geom_line(aes(x = grid, y = pdf_est, color = "Optimized Density")) + geom_density(aes(x = jittered_data, color = "Kernel Density"), kernel = "gaussian") + 
-  labs(x = "x", y = "y") + 
-  scale_color_manual(breaks=c('Kernel Density', 'Optimized Density'),
-                     values=c('Kernel Density'='red', 'Optimized Density'='blue'))
-
 ```
 
-We see that the kernel density estimate and the bi-log-normal density using the optimized parameters are similar, giving us a visual suggestion that the assumption of a bi-log-normal distribution seems reasonable. The next section will be dedicated to test this assumption, using parametric bootstrap.
+We know have the optimized parameters for our parametric model of a bi-log-normal distribution. But so far we have only seen visual evidence that the data follows a bi-log-normal distribution. The next section will be dedicated to statistically test this assumption, using parametric bootstrap.
 
 # Parametric Bootstrap
 
@@ -158,7 +160,20 @@ To perform this test, we proceed as follows: We create XX bootstrap datasets con
 3. Estimate the parameters of the bi-log-normal model using the EM algorithm.
 4. Optimize the true log likelihood of the binned, bootstrapped data.
 
-After that we can estimate the p value for testing $H_0$ vs $H_1$. This is done by comparing the kolmogorov statistic to 
+After that we can estimate the p value for testing $H_0$ vs $H_1$. This is done by comparing on each bootstrapped dataset the empirical CDF with the parametrized CDF using the parameters obtained by EM and Optimization. More precisely we calculate 
+$$
+T_b^\star = \sup_x \Big| \widehat{F}_{N,b}^\star(x) - F_{\widehat{\lambda}_b^\star}(x) \Big|,
+$$
+where $\widehat{F}_{N,b}^\star$ is the empirial CDF of of the b-th bootstrapped dataset and $F_{\widehat{\lambda}_b^\star}$ is the CDF parametrized by the optimized parameters ($\lambda_b^\star$) of the b-th bootstrapped parameters. Furthermore we calculate the Kolmogorov-Smirnov statistic of the empirical CDF of our original data and the CDF parametrized by the optimized parameters of the original data, that is 
+$$
+T = \sup_x \Big| \widehat{F}_N(x) - F_\widehat{\lambda}(x) \Big|.
+$$
+To calculate the empirical CDF of binned data, we distribute the datapoints of each bin on an equidistant grid from the startpoint to the endpoint of this bin.
+Now our estimate for the p-value is given by
+$$
+\widehat{\text{p-val}} = \frac{1}{B+1}\left( 1 + \sum_{b=1}^B \mathbb{I}_{[T_b^\star \geq T]} \right),
+$$
+where $B =$ XX is the number of bootstrapped datasets. Performing these calculations we will get a p value of XX.
 ```{r parametric bootstrap, echo=FALSE}
 n_bootstrap = 100 # number of bootstrap samples
 ndata_boot = 1000 # number of data in bootstrap sample
