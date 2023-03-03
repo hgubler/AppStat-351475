@@ -17,163 +17,247 @@ The data contains diameter bins of snowflakes described by startpoint and endpoi
 Expert knowledge: A mixture of two log-normal distributions is a good model for the data. So our goal in this assignment will to estimate the 5 parameters of the bi-log-normal distribution using the EM algorithm. One of the difficulties will be to handle the binned data in a good way. After the estimation of the parameters, we will test the hypothesis whether the data actually came from the bi-log-normal distribution or not.
 
  
-## Reading and Exploring data
+## Preparing and Exploring data
+
+Since we only have the information about how many percentages we have in each bin and how many datapoints in total, we calculate the number of datapoints in each bin and then jitter the data using the uniform distribution. For the last bin we set the endpoint to 3.25 to have a more comparable size compared to all other bins. After that we plot a histogram of the jittered data.
 
 ```{r}
-
+data = read.csv("/Users/hannesgubler/Documents/R Repositories/AppStat-351475/Project-1/1_snow_particles.csv")
+num_inbin = length(data$X)
+num_part = data$particles.detected[1]
+for (i in 1:length(data$X)) {
+  num_inbin[i] = round(data$retained....[i] / 100 * num_part)
+}
+#jitter the data
+n = sum(num_inbin)
+counter = 0
+jittered_data = rep(0, n)
+data$endpoint[52] = 3.25 
+for (i in 1:length(num_inbin)) {
+  interval_length = data$endpoint[i] - data$startpoint[i]
+  for(j in 1:num_inbin[i]) {
+    if (num_inbin[i] == 0) {
+      next
+    }
+    jittered_data[j + counter] = data$startpoint[i] + 
+      runif(1, min = 0, max = interval_length)
+  }
+  counter = counter + num_inbin[i]
+}
+breaks = seq(from = 0, to = 3, by = 0.01)
+hist(jittered_data, breaks=1000) # histogram of jittered data
 ```
 
-Education level and background should probably be factors, and we are discarding `birth` and `company` since those are mostly unique and hence we do not have enough data to take them into account in modeling. For the response, we take logarithm for obvious reasons.
+## EM algorithm and optimization
 
-## First Model
+We calculate the parameters for a bi-log-normal distribution using the EM algorithm. To chose starting values check the histogram
+```{r}
+#function to sample from a Gaussian mixture model
+rbilnorm <- function(N, mu1, mu2, sigma1, sigma2, tau){
+  ind <- I(runif(N) > tau)
+  X <- rep(0,N)
+  X[ind] <- rlnorm(sum(ind), mu1, sigma1)
+  X[!ind] <- rlnorm(sum(!ind), mu2, sigma2)
+  return(X)
+}
+
+#pdf from the Gaussian mixture model
+dbilnorm <- function(x, mu1, mu2, sigma1, sigma2, tau){
+  y <- (1-tau)*dlnorm(x, mu1, sigma1) + tau * dlnorm(x, mu2, sigma2)
+  return(y)
+}
+
+#EM algorithm for GMMM
+EM = function(x, mu1, mu2, sigma1, sigma2, tau) {
+  n = length(x)
+  lold = 0
+  lnew = 10
+  while (abs(lold-lnew) > 10^-2) {
+    #calculate log likelihood for convergence criteria
+    lold = sum(log((1 - tau)*dlnorm(x, mean = mu1, sd = sigma1) + tau * dlnorm(x, mean = mu2, sd = sigma2)))
+    p = dlnorm(x, mean = mu2, sd = sigma2) * tau / dbilnorm(x, mu1, mu2, sigma1, sigma2, tau)
+    #update the parameters according to ML estimator of slide 15, week 7
+    tau = 1/n * sum(p)
+    mu1 = sum(log(x) * (1 - p)) / sum(1 - p)
+    mu2 = sum(log(x) * p) / sum(p)
+    sigma1 = sqrt(sum((1 - p) * ((log(x) - mu1)^2)) / sum(1 - p))
+    sigma2 = sqrt(sum(p * ((log(x) - mu2)^2)) / sum(p))
+    #calculate log likelihood for convergence criteria
+    lnew = sum(log((1 - tau)*dlnorm(x, mean = mu1, sd = sigma1) + tau * dlnorm(x, mean = mu2, sd = sigma2)))
+  }
+  return(c(mu1, mu2, sigma1, sigma2, tau))
+}
+
+mu1 <- -3
+mu2 <- -0.5
+sigma1 <- 0.3
+sigma2 <- 0.4
+tau <- 0.7
+estim = EM(jittered_data, mu1, mu2, sigma1, sigma2, tau)
+```
+
+We now use the estimated parameters from the EM algorithm to start an optimization of the true log likelihood (of the binned data, not the jittered data). After that we plot the density of the bi-log-normal distribution using the optimized parameters together with the kernel density estimator of the jittered data, using a gaussian kernel.
+```{r}
+cdfbilognorm = function(x, mu1, mu2, sigma1, sigma2, tau) {
+  y <- (1 - tau) * plnorm(x, mu1, sigma1) + tau * plnorm(x, mu2, sigma2)
+  return(y)
+}
+
+negloglikelihood = function(par) {
+  logli = 0
+  mu1 = par[1]
+  mu2 = par[2]
+  sigma1 = par[3]
+  sigma2 = par[4]
+  tau = par[5]
+  for (i in 1:length(data$X)) {
+    logli = logli + (num_inbin[i]) * log((cdfbilognorm(data$endpoint[i], mu1, mu2, sigma1, sigma2, tau) - 
+                       cdfbilognorm(data$startpoint[i], mu1, mu2, sigma1, sigma2, tau)))
+  }
+  return(-logli)
+}
+out = optim(estim, negloglikelihood)
+estim_opt = as.numeric(unlist(out[1]))
+mu1_opt = estim_opt[1]
+mu2_opt = estim_opt[2]
+sigma1_opt = estim_opt[3]
+sigma2_opt = estim_opt[4]
+tau_opt = estim_opt[5]
+x_grid = seq(from = 0, to = 3, by = 0.01)
+pdf_est = dbilnorm(x_grid, mu1_opt, mu2_opt, sigma1_opt, sigma2_opt, tau_opt)
+jittered_pdf = density(x = jittered_data)
+plot(jittered_pdf)
+lines(x_grid, pdf_est, col = "red")
+```
+
+We can see that the two densities are pretty similar, so it seems that the assumption of a bi log normal distribution for the data seems very reasonable. To test this assumption, we will use parametric bootstrap in the next section.
+
+## Parametric Bootstrap
+
+In this section we test whether the data supports the hypothesis that the distribution of our data, say $F$, belongs to the parametric family of bi log normal distributions, that is:
+$$
+H_0: F \in \mathcal{F},\qquad H_1: F \notin \mathcal{F}.
+$$
+where $\mathcal{F} = \{ F_\lambda \mid \lambda \in \Lambda \}$
+We create 500 bootstraps sampling from a bi-log-normal distribution using the optimized parameters from before. After that, for each bootstrapped dataset, we perform the following steps.
+
+1. Bin the data using the bins of the original dataset.
+2. Jitter the data.
+3. Estimate the parameters of the bi-log-normal model using the EM algorithm.
+4. Optimize the true log likelihood of the binned data.
+
+After that we can estimate the p value for testing $H_0$ vs $H_1$
 
 ```{r}
+n_bootstrap = 500 # number of bootstrap samples
+ndata_boot = 500 # number of data in bootstrap sample
+bootstrap_data = matrix(nrow = ndata_boot, ncol = n_bootstrap) 
+for (i in 1:n_bootstrap) {
+  set.seed(i) # different seed for each bootstrap data
+  bootstrap_data[, i] = rbilnorm(ndata_boot, mu1_opt, mu2_opt, sigma1_opt, sigma2_opt, tau_opt)
+}
+#bin the bootstrap data
+binned_bootstrap_data = matrix(nrow = length(data$X), ncol = n_bootstrap)
+for (i in 1:n_bootstrap) {
+  for (j in 1:length(data$X)) {
+    counter = 0
+    for (k in 1:ndata_boot) {
+      if (data$startpoint[j] <= bootstrap_data[k, i] && data$endpoint[j] > bootstrap_data[k, i]) {
+        counter = counter + 1
+      }
+    }
+    binned_bootstrap_data[j, i] = counter # number of data points in j-th bin
+  }
+}
 
+# jitter the binned bootstrap samples
+jittered_boot_data = matrix(nrow = ndata_boot, ncol = n_bootstrap)
+for (k in 1:n_bootstrap) {
+  counter = 0
+  for (i in 1:length(data$X)) {
+    interval_length = data$endpoint[i] - data$startpoint[i]
+    for(j in 1:binned_bootstrap_data[i, k]) {
+      if (binned_bootstrap_data[i, k] == 0) {
+        next
+      }
+      jittered_boot_data[j + counter, k] = data$startpoint[i] + 
+        runif(1, min = 0, max = interval_length)
+    }
+    counter = counter + binned_bootstrap_data[i, k]
+  }
+}
+
+#estimate the parameters for each bootstrap sample
+estim_boot = matrix(nrow = 5, ncol = n_bootstrap)
+for (i in 1:n_bootstrap) {
+  estim_boot[, i] = EM(jittered_boot_data[, i], mu1, mu2, sigma1, sigma2, tau)
+}
+estim_boot_opt = matrix(nrow = 5, ncol = n_bootstrap)
+for (i in 1:n_bootstrap) {
+  out = optim(estim_boot[, i], negloglikelihood)
+  estim_boot_opt[, i] = as.numeric(unlist(out[1]))
+}
+ 
+#Calculate the kolmogorov smirnoff statisitc
+#create data to use for ecdf for binned data
+counter = 0
+ecdf_data = rep(0, n)
+for (i in 1:length(num_inbin)) {
+  interval_length = data$endpoint[i] - data$startpoint[i]
+  for(j in 1:num_inbin[i]) {
+    if (num_inbin[i] == 0) {
+      next
+    }
+    ecdf_data[j + counter] = data$startpoint[i] + interval_length / j
+  }
+  counter = counter + num_inbin[i]
+}
+ecdf_binned = ecdf(ecdf_data)
+grid = seq(from = 0, to = 3.25, by = 0.01)
+kol_smir = 0 
+for (i in 1:length(grid)) {
+  a = abs(ecdf_binned(grid[i]) - 
+            cdfbilognorm(grid[i], mu1_opt, mu2_opt, sigma1_opt, sigma2_opt, tau_opt))
+  if (a > kol_smir) {
+    kol_smir = a
+  }
+}
+
+#calculate T_b^*
+T_b = rep(0, n_bootstrap)
+for (k in 1:n_bootstrap) {
+  counter = 0
+  ecdf_boot_data = rep(0, ndata_boot)
+  for (i in 1:length(data$X)) {
+    interval_length = data$endpoint[i] - data$startpoint[i]
+    for(j in 1:binned_bootstrap_data[i, k]) {
+      if (binned_bootstrap_data[i, k] == 0) {
+        next
+      }
+      ecdf_boot_data[j + counter] = data$startpoint[i] + interval_length / j
+    }
+    counter = counter + binned_bootstrap_data[i, k]
+  }
+  ecdf_boot = ecdf(ecdf_boot_data)
+  for (j in 1:length(grid)) {
+    a = abs(ecdf_boot(grid[j]) - 
+              cdfbilognorm(grid[j], estim_boot_opt[1, k], estim_boot_opt[2, k], 
+                           estim_boot_opt[3, k], estim_boot_opt[4, k], estim_boot_opt[5, k]))
+    if (a > T_b[k]) {
+      T_b[k] = a
+    }
+  }
+}
+
+#calculate the estimated p value
+a = 0
+for (k in 1:n_bootstrap) {
+  if (T_b[k] > kol_smir) {
+    a = a + 1
+  }
+}
+p = 1 / (n_bootstrap + 1) * (a + 1)
+print(p)
 ```
 
-Did we miss anything:
-
-```{r}
-
-```
-
-There is some residual dependency on `sales`, which should have been taken on a log-scale in the first place. Let's do the same again but with the log:
-
-```{r}
-Data <- Data %>% mutate(sales=log(sales))
-m1 <- lm(comp~., data=Data)
-anova(m1)
-m0 <- lm(comp~.-backgrd-tenure-exper-val, data=Data)
-anova(m0,m1)
-m1 <- m0
-anova(m1)
-resData <- Data
-resData$res <- resid(m1)
-resData %>% mutate(backgrd=as.numeric(backgrd), educatn=as.numeric(educatn)) %>% pivot_longer(-res) %>%
-  ggplot(aes(y=res,x=value)) + facet_wrap(~ name, scales = "free") + geom_point()
-```
-
-Looks like a decent model, check residuals:
-
-```{r}
-par(mfrow=c(3,2))
-plot(m1,1:6)
-Data[58,]
-dev.off()
-hist(resid(m1),freq=F, breaks=20)
-points(-300:300/100,dnorm(-300:300/100,0,sd(resid(m1))),type="l",col="red")
-```
-
-There is the clear outlier visible on all the plots before, owning 1/3 of his firm with the largest market value. This might be the only observation making `pcntown`. But actually, it is not like that:
-
-```{r}
-m0 <- lm(comp~.-backgrd-tenure-exper-val, data=Data[-58,])
-summary(m0)
-m0 <- lm(comp~.-backgrd-tenure-exper-val-age, data=Data)
-anova(m0,m1)
-m1 <- lm(comp~educatn+sales+pcntown+prof, data=Data)
-summary(m1)
-```
-
-Since we are interested in the effect of education, let us take a look on interactions including education:
-
-```{r}
-m1 <- lm(comp~educatn*(sales+pcntown+prof), data=Data)
-anova(m1)
-m0 <- lm(comp~sales+educatn*pcntown+prof, data=Data)
-anova(m0,m1)
-m1 <- m0
-summary(m1)
-resData <- Data
-resData$res <- resid(m1)
-resData %>% mutate(backgrd=as.numeric(backgrd), educatn=as.numeric(educatn)) %>% pivot_longer(colnames(resData)[colnames(resData) != "res"]) %>%
-  ggplot(aes(y=res,x=value)) + facet_wrap(~ name, scales = "free") + geom_point()
-par(mfrow=c(3,2))
-plot(m1,1:6)
-hist(resid(m1),freq=F, breaks=20)
-points(-300:300/100,dnorm(-300:300/100,0,sd(resid(m1))),type="l",col="red")
-```
-
-The only significant interaction is with ownership percentage, and it does seem to improve the residuals mildly.
-
-## Interpretation
-
-```{r}
-Data <- read_data()
-names(Data) <- tolower(names(Data))
-Data <- Data %>% mutate(educatn=as.factor(educatn),comp=log(comp,2), sales=log(sales,2))
-mfinal <- lm(comp~sales+educatn*pcntown+prof, data=Data)
-summary(mfinal)
-```
-
-Compared to having no college education, expected salary of undergraduate CEOs is `exp(-0.61)=0.54` times smaller, hence it is almost halved, though this is not statistically significant (due to a small size of the no-college group) and expected salary of graduate CEOs is `exp(-1.11)=0.33` times smaller, statistically significant. In this interpretation, we are ignoring the `educatn:pcntown` interaction, hence this interpretation is valid only for CEOs that do not own stocks (which is a majority of them anyway).
-
-Given how small the no-college education group is, we could be interested rather in the difference between the undergrad and grad groups, which is given here
-
-```{r}
-Data <- read_data()
-names(Data) <- tolower(names(Data))
-Data <- Data %>% mutate(educatn=as.factor(-educatn),comp=log(comp,2), sales=log(sales,2))
-mfinal <- lm(comp~sales+educatn*pcntown+prof, data=Data)
-summary(mfinal)
-```
-
-i.e. compared to having a grad degree, expected salary of an undergrad degree is `exp(0.51)=1.65` times larger (again, for CEOs without stocks).
-
-## Further Checks
-
-We have already done residual diagnostics. Given our goal (assessing the effect of education) and given the fact that we do not have multiple candidate models, let's skip predictive checking and focus on sensitivity/stability. We haven't really done anything questionable with our variables apart from 2 things:
-
-* we have decided to include education as a factor (i.e. having 2 degrees of freedom), while it seems that including it as a numerical variable (i.e. with only a single degree of freedom) could have been enough
-* we have taken a log of sales but not log of profits, even though those two variables are somewhat similar
-    - also, we took the the log of sales to make the dependence more linear, but examining the residuals-against-sales plot closer (especially when we add `geom_smooth`) suggests we haven't really made the dependence entirely linear
-
-Apart from these two, it would be natural to consider
-
-* a model with influential observations and outliers removed
-* a simpler model `lm(comp~sales+educatn, data=Data)`
-
-Is our surprising interpretation that higher level of education has a negative impact on CEO compensations sensitive to the choices above?
-
-```{r}
-Data <- read_data()
-names(Data) <- tolower(names(Data))
-Data <- Data %>% mutate(educatn=as.factor(educatn),comp=log(comp,2), sales=log(sales,2))
-fit <- lm(comp~educatn+sales,data=Data)
-summary(fit)
-which(hatvalues(m1)>0.5)
-fit <- lm(comp~sales+educatn*pcntown+prof, data=Data[-c(50,51,58,70,88),])
-summary(fit)
-Data <- read_data()
-names(Data) <- tolower(names(Data))
-Data <- Data %>% mutate(educatn=as.factor(educatn),comp=log(comp))
-fit <- lm(comp~sales+I(sales^2)+educatn*pcntown+prof, data=Data)
-summary(fit)
-resData <- Data %>% select(-company,-birth)
-resData$res <- resid(fit)
-resData %>% mutate(backgrd=as.numeric(backgrd), educatn=as.numeric(educatn)) %>% pivot_longer(colnames(resData)[colnames(resData) != "res"]) %>%
-  ggplot(aes(y=res,x=value)) + facet_wrap(~ name, scales = "free") + geom_point()
-```
-
-The negative effect of education is not sensitive with respect to our model choice.
-
-Just for fun, let's say we want to see whether our final model improves prediction over the simpler model. We will cross-validate MSE, and do it in a separate script so we don't have to wait for the CV to run whenever we knit this Rmarkdown file.
-
-```{r}
-load("cv_data.RData")
-rowMeans(ERR)
-```
-
-We can see that our final model is better.
-
-It seems there is no problem with multicollinearity from the point of the variance inflation factor, but the condition number is really large, though this is also the case for simpler models and it is caused by the fact that there are very few observations in the no-degree class of the education variable, which are all very similar w.r.t. sales:
-
-```{r}
-library(car)
-vif(mfinal)
-kappa(vcov(mfinal))
-msimpler <- lm(comp~sales+educatn, data=Data)
-kappa(vcov(msimpler))
-```
-
-We cannot really do anything about this, it is just important to be aware of our model's limitations.
+Our calculation give us a p-value of ..., which is quite large so we will not reject $H_0$. This supports the claim that our data comes from a bi-log-normal distribution.

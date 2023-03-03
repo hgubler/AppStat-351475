@@ -8,10 +8,6 @@ rbilnorm <- function(N, mu1, mu2, sigma1, sigma2, tau){
 }
 
 #pdf from the Gaussian mixture model
-dbilnorm2 <- function(x, mu1, mu2, sigma1, sigma2, tau){
-  y <- (1-tau)*dlnorm(x,mu1,sigma1) + tau*dlnorm(x,mu2,sigma2)
-  return(y)
-}
 
 dbilnorm <- function(x, mu1, mu2, sigma1, sigma2, tau){
   y <- (1-tau)*dlnorm(x, mu1, sigma1) + tau * dlnorm(x, mu2, sigma2)
@@ -53,6 +49,9 @@ data$endpoint[52] = 3.25
 for (i in 1:length(num_inbin)) {
   interval_length = data$endpoint[i] - data$startpoint[i]
   for(j in 1:num_inbin[i]) {
+    if (num_inbin[i] == 0) {
+      next
+    }
     jittered_data[j + counter] = data$startpoint[i] + 
       runif(1, min = 0, max = interval_length)
   }
@@ -109,8 +108,8 @@ for (i in 1:length(data$X)) {
 }
 
 # bootstrap
-n_bootstrap = 2000 # number of bootstrap samples
-ndata_boot = 1000 # number of data in bootstrap sample
+n_bootstrap = 500 # number of bootstrap samples
+ndata_boot = 500 # number of data in bootstrap sample
 bootstrap_data = matrix(nrow = ndata_boot, ncol = n_bootstrap) 
 for (i in 1:n_bootstrap) {
   set.seed(i) # different seed for each bootstrap data
@@ -165,6 +164,9 @@ ecdf_data = rep(0, n)
 for (i in 1:length(num_inbin)) {
   interval_length = data$endpoint[i] - data$startpoint[i]
   for(j in 1:num_inbin[i]) {
+    if (num_inbin[i] == 0) {
+      next
+    }
     ecdf_data[j + counter] = data$startpoint[i] + interval_length / j
   }
   counter = counter + num_inbin[i]
@@ -214,3 +216,4 @@ for (k in 1:n_bootstrap) {
   }
 }
 p = 1 / (n_bootstrap + 1) * (a + 1)
+print(p)
