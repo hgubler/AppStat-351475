@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Introduction
 
-In this report, we work with binned data where each bin refers to a diameter range of snowflakes .More precisely, it describes the total number of snowflakes measured and the percentage of snowflakes belonging to each diameter bin. The data comes from the Laboratory of Cryospheric sciences at EPFL.
+In this report, we work with binned data where each bin refers to a diameter range of snowflakes. More precisely, it describes the total number of snowflakes measured and the percentage of snowflakes belonging to each diameter bin. The data comes from the Laboratory of Cryospheric sciences at EPFL.
 Expert knowledge suggests us that a mixture of two log-normal distributions (bi-log-normal distribution) is a good model for the data.
 The outline of the remainder of this report is as follows: In Section 2, we visually verify if the expert knowledge of a bi-log-normal distribution is a valid assumption. After that, in Section 3, we will use the EM algorithm and an optimization algorithm to estimate the five parameters that describe distribution. Finally we will use parametric bootstrap to test whether the snowflake diameters come from a bi-log-normal distribution.
 
@@ -21,6 +21,7 @@ Since we already have access to the expert knowledge telling us that the bi-log-
 
 ```{r histogram, echo=FALSE, fig.align="center", fig.cap="Histogram for the snowflake diameters after jittering the data using a uniform distribution in each bin."}
 library(ggplot2)
+set.seed(1) # set a seed for reproducibility
 data = read.csv(file = "1_snow_particles.csv")
 num_inbin = rep(0, length(data$X)) # store the number of datapoints in each bin here
 num_part = data$particles.detected[1] # number of total datapoints
@@ -28,7 +29,6 @@ for (i in 1:length(data$X)) {
   num_inbin[i] = round(data$retained....[i] / 100 * num_part) #rounded number of data in the i-th bin, need to jitter the data in the next step
 }
 # jittering the data
-set.seed(100) # set a seed before jitter the data using a uniform distribution
 n = sum(num_inbin) #cnumber of data points
 counter = 0
 jittered_data = rep(0, n) 
@@ -141,6 +141,7 @@ negloglikelihood = function(par) {
   }
   return(-logli) #return the negative log likelihood
 }
+
 out = optim(estim, negloglikelihood, method = "Nelder-Mead")
 estim_opt = as.numeric(unlist(out[1]))
 mu1_opt = estim_opt[1]
@@ -222,9 +223,25 @@ estim_boot = matrix(nrow = 5, ncol = n_bootstrap)
 for (i in 1:n_bootstrap) {
   estim_boot[, i] = EM(jittered_boot_data[, i], mu1, mu2, sigma1, sigma2, tau)
 }
+
+# function for negative log likelihood for the binned bootstrapped data to optimize in next step
+negloglikelihood_boot = function(par) {
+  logli = 0 # start at 0 and sum op at each datapoint
+  mu1 = par[1]
+  mu2 = par[2]
+  sigma1 = par[3]
+  sigma2 = par[4]
+  tau = par[5]
+  for (j in 1:length(data$X)) {
+    logli = logli + (binned_bootstrap_data[j, i]) * log((cdfbilognorm(data$endpoint[j], mu1, mu2, sigma1, sigma2, tau) - 
+                       cdfbilognorm(data$startpoint[j], mu1, mu2, sigma1, sigma2, tau)))
+  }
+  return(-logli) #return the negative log likelihood
+}
+
 estim_boot_opt = matrix(nrow = 5, ncol = n_bootstrap)
 for (i in 1:n_bootstrap) {
-  out = optim(estim_boot[, i], negloglikelihood, method="Nelder-Mead")
+  out = optim(estim_boot[, i], negloglikelihood_boot, method="Nelder-Mead")
   estim_boot_opt[, i] = as.numeric(unlist(out[1]))
 }
  
@@ -291,7 +308,7 @@ for (k in 1:n_bootstrap) {
 p = 1 / (n_bootstrap + 1) * (a + 1)
 #print(p)
 ```
-Performing these calculations we ovserve a p-value of 0.7029703. This is quite a large p-value and hence we will not reject $H_0$, supporting the assumption of a bi-log-normal model for our data. So we can use our optimized parameters to simulate new datapoints for our snowflake experiment. To finish this section, we provide a final plot containing the empirical CDF of our data and the parametrized CDF using our optimized parameters.
+Performing these calculations we ovserve a p-value of 0.7722772. This is quite a large p-value and hence we will not reject $H_0$, supporting the assumption of a bi-log-normal model for our data. So we can use our optimized parameters to simulate new datapoints for our snowflake experiment. To finish this section, we provide a final plot containing the empirical CDF of our data and the parametrized CDF using our optimized parameters.
 
 ```{r CDF, echo=FALSE, fig.align='center', fig.cap="Empirical CDF of the original binned data with a bi-log-normal CDF parametrized by our optimized parameters."}
 ecdf_param = cdfbilognorm(grid, mu1_opt, mu2_opt, sigma1_opt, sigma2_opt, tau_opt)
