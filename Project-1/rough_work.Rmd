@@ -22,7 +22,7 @@ Expert knowledge: A mixture of two log-normal distributions is a good model for 
 Since we only have the information about how many percentages we have in each bin and how many datapoints in total, we calculate the number of datapoints in each bin and then jitter the data using the uniform distribution. For the last bin we set the endpoint to 3.25 to have a more comparable size compared to all other bins. After that we plot a histogram of the jittered data.
 
 ```{r}
-data = read.csv("/Users/hannesgubler/Documents/R Repositories/AppStat-351475/Project-1/1_snow_particles.csv")
+data = read.csv("1_snow_particles.csv")
 num_inbin = length(data$X)
 num_part = data$particles.detected[1]
 for (i in 1:length(data$X)) {
@@ -149,7 +149,7 @@ We create 500 bootstraps sampling from a bi-log-normal distribution using the op
 After that we can estimate the p value for testing $H_0$ vs $H_1$
 
 ```{r}
-n_bootstrap = 500 # number of bootstrap samples
+n_bootstrap = 5000 # number of bootstrap samples
 ndata_boot = 500 # number of data in bootstrap sample
 bootstrap_data = matrix(nrow = ndata_boot, ncol = n_bootstrap) 
 for (i in 1:n_bootstrap) {
@@ -208,7 +208,7 @@ for (i in 1:length(num_inbin)) {
     if (num_inbin[i] == 0) {
       next
     }
-    ecdf_data[j + counter] = data$startpoint[i] + interval_length / j
+    ecdf_data[j + counter] = data$endpoint[i] 
   }
   counter = counter + num_inbin[i]
 }
@@ -234,7 +234,7 @@ for (k in 1:n_bootstrap) {
       if (binned_bootstrap_data[i, k] == 0) {
         next
       }
-      ecdf_boot_data[j + counter] = data$startpoint[i] + interval_length / j
+      ecdf_boot_data[j + counter] = data$endpoint[i] 
     }
     counter = counter + binned_bootstrap_data[i, k]
   }
