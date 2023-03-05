@@ -17,7 +17,7 @@ The outline of the remainder of this report is as follows: In Section 2, we visu
 
 # Descriptive Data Exploration
 
-Since we already have access to the expert knowledge telling us that the bi-log-normal distribution is a good model for the data, our main goal in this section is to check whether this is a viable assumption. It would be easy to just plot a histogram of the data, but since we only have the data in bins and not exactly, it will be slightly more difficult. So before plotting the histogram, we will jitter the data using a uniform distribution inside each bin. Also, we will set the endpoint of the last bin to 3.25 to make the size of the last bin more comparable to the rest (the last bin doesn't contain any datapoint so this won't affect our future calculations too much).
+Since we already have access to the expert knowledge telling us that the bi-log-normal distribution is a good model for the data, our main goal in this section is to check whether this is a viable assumption. It would be easy to just plot a histogram of the data, but since we only have the data in bins of different sizes, it will be slightly more difficult. So before plotting the histogram, we will jitter the data using a uniform distribution inside each bin. Also, we will set the endpoint of the last bin to 3.25 to make the size of the last bin more comparable to the rest (the last bin doesn't contain any datapoint so this won't affect our future calculations).
 
 ```{r histogram, echo=FALSE, fig.align="center", fig.cap="Histogram for the snowflake diameters after jittering the data using a uniform distribution in each bin."}
 library(ggplot2)
@@ -118,7 +118,7 @@ Since we performed the EM algorithm on the jittered data, we didn't we maximize 
 $$
 f(d\mid\mu_1, \mu_2,\sigma_1, \sigma_2, \tau) \propto \prod_{j=1}^n \left[ \Phi_{\mu_1, \mu_2,\sigma_1, \sigma_2, \tau}(a_{j}) - \Phi_{\mu_1, \mu_2,\sigma_1, \sigma_2, \tau}(a_{j-1}) \right]^{b_j},
 $$
-where $a_j$ are the bin endpoints, $b_j$ the frequencies observed for each bin and $d$ is full dataset.
+where $a_j$ are the bin endpoints, $b_j$ the frequencies observed for each bin and $d$ is the full dataset.
 Still, the results from the EM algorithm should be close to the maximum of the log likelihood, hence we can use them as starting values to perform an optimization. We use the Nelder-Mead optimization algorithm.
 ```{r optimization, echo=FALSE}
 # function calculating the cdf of a bilognornal distribution<
