@@ -1,0 +1,32 @@
+---
+title: "Project-2 Rough Work"
+author: "Hannes"
+date: "2023-03-06"
+output: bookdown::html_document2
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+Shopping data coming from the e-commerce website itself, containing a revenue variable (response variable) indicating whether a purchase was made or not and several predictor variables)
+
+# 
+change variable names to same style, change some variables to factors.
+```{data preparation r}
+load("2_online_shopping.RData")
+library(dplyr)
+library(ggplot2)
+data = Data # rename to "data"
+rm(Data)
+data = data %>% rename(purchase = Revenue, administrative = Administrative, administrative_duration = Administrative_Duration, informational = Informational, informational_duration = Informational_Duration, product_related = ProductRelated, product_related_duration = ProductRelated_Duration, bounce_rates = BounceRates, exit_rates = ExitRates, page_values = PageValues, special_day = SpecialDay, month = Month, operating_systems = OperatingSystems, browser = Browser, region = Region, traffic_type = TrafficType, visitor_type = VisitorType, weekend = Weekend) 
+```
+
+```{r data exploration}
+gm_all = glm(purchase ~ ., data = data)
+ggplot(data = data) + facet_wrap(gm_all$residuals ~ .)
+```
+
+
+
