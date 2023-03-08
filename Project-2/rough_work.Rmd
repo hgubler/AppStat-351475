@@ -12,21 +12,78 @@ knitr::opts_chunk$set(echo = TRUE)
 # Introduction
 Shopping data coming from the e-commerce website itself, containing a revenue variable (response variable) indicating whether a purchase was made or not and several predictor variables)
 
-# 
-change variable names to same style, change some variables to factors.
-```{data preparation r}
-load("2_online_shopping.RData")
+# Data preparation
+change variable names to same style. Change all variables given as characters to factors and in the end change some specific variables to factors where it just makes sense. After that look at all the factor variables. Merge small groups together to one group "other".
+```{r dataprep}
 library(dplyr)
+library(tidyr)
 library(ggplot2)
+library(pROC)
+library(forcats)
+library(ggcorrplot)
+load("2_online_shopping.RData")
 data = Data # rename to "data"
 rm(Data)
-data = data %>% rename(purchase = Revenue, administrative = Administrative, administrative_duration = Administrative_Duration, informational = Informational, informational_duration = Informational_Duration, product_related = ProductRelated, product_related_duration = ProductRelated_Duration, bounce_rates = BounceRates, exit_rates = ExitRates, page_values = PageValues, special_day = SpecialDay, month = Month, operating_systems = OperatingSystems, browser = Browser, region = Region, traffic_type = TrafficType, visitor_type = VisitorType, weekend = Weekend) 
+# first change the name to snake_case
+data = data %>% rename(purchase = Revenue, administrative = Administrative,
+                       administrative_duration = Administrative_Duration, 
+                       informational = Informational, informational_duration = Informational_Duration,
+                       product_related = ProductRelated, product_related_duration = ProductRelated_Duration,
+                       bounce_rates = BounceRates, exit_rates = ExitRates,
+                       page_values = PageValues, special_day = SpecialDay, month = Month,
+                       operating_systems = OperatingSystems, browser = Browser, region = Region,
+                       traffic_type = TrafficType, visitor_type = VisitorType, weekend = Weekend) 
+#str(data) # to see which variables are factors and which are numeric
+data = data %>% mutate_if(is.character, as.factor) # change character variables to factors
+data = data %>% mutate_if(is.integer, as.numeric) # change integers variables to numeric
+data = data %>% mutate_if(is.logical, as.factor) # change logical variables to factors
+data = data %>% mutate_at(c("visitor_type", "region", "browser", "operating_systems",
+                            "traffic_type"), as.factor) # individually change some variables to factors
+
+# loop over the factor variables and merge categories with small number of observations together
+for (i in 1:length(data)) {
+  if(is.factor(data[, i])) {
+    tt = table(data[, i])
+    data[, i] = fct_collapse(data[, i], "other" = names(tt[tt < 40]))
+  }
+}
 ```
 
+# First model 
+
+First we fit a generalized linear model including all the variables and plot residual vs variable plot for each variable.
 ```{r data exploration}
-gm_all = glm(purchase ~ ., data = data)
-ggplot(data = data) + facet_wrap(gm_all$residuals ~ .)
+gm_all = glm(purchase ~ ., data=data, family="binomial")
+# do facetwrap
+data %>% mutate(res = resid(gm_all)) %>% mutate_if(is.factor, as.numeric) %>% 
+  mutate_if(is.integer, as.numeric) %>% pivot_longer(-res) %>% 
+  ggplot(aes(y = res, x = value)) + facet_wrap( ~ name, scales = "free") + 
+  geom_point() + stat_smooth(span = 0)
+```
+We can see that maybe we need to include a quadratic dependency of page_values.
+We create diagnostic plots with a linear model
+
+```{r linearmodel}
+lm_all = lm(purchase ~ ., data=data)
+# do facetwrap
+data %>% mutate(res = resid(lm_all)) %>% mutate_if(is.factor, as.numeric) %>%
+  pivot_longer(-res) %>% 
+  ggplot(aes(y = res, x = value)) + facet_wrap( ~ name, scales = "free") + 
+  geom_point() + geom_smooth()
 ```
 
+We can also look at the correlation between all the variables.
+```{r correlationplot}
+data_num = data %>% mutate_if(is.factor, as.numeric)
+corr <- round(cor(data_num), 1)
+ggcorrplot(corr, ggtheme = ggplot2::theme_gray)
+```   
+Also look at scatterplot of purchase a
+
+```{r}
+data %>% mutate_if(is.factor, as.numeric) %>%pivot_longer(-purchase) %>% 
+  ggplot(aes(y = purchase, x = value)) + facet_wrap( ~ name, scales = "free") + 
+  geom_point() + geom_smooth()
+```
 
 
