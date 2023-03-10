@@ -6,7 +6,7 @@ output: bookdown::html_document2
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 ```
 
 # Introduction
@@ -78,12 +78,16 @@ data_num = data %>% mutate_if(is.factor, as.numeric)
 corr <- round(cor(data_num), 1)
 ggcorrplot(corr, ggtheme = ggplot2::theme_gray)
 ```   
-Also look at scatterplot of purchase a
+Also look at histograms of data
 
 ```{r}
-data %>% mutate_if(is.factor, as.numeric) %>%pivot_longer(-purchase) %>% 
-  ggplot(aes(y = purchase, x = value)) + facet_wrap( ~ name, scales = "free") + 
-  geom_point() + geom_smooth()
-```
+data_long <- gather(data_num, key = "predictor", value = "value")
 
+# create histogram plot with facets
+ggplot(data_long, aes(x = value)) + 
+  geom_histogram() + 
+  facet_wrap(~ predictor, scales = "free") 
+
+```
+Maybe use special day as factor for yes or no?
 

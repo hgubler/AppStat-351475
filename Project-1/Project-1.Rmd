@@ -103,11 +103,15 @@ estim = EM(jittered_data, mu1, mu2, sigma1, sigma2, tau)
 #plot the kernel density estimator and bi-log-normal density
 grid = seq(from = 0, to = 3.25, by = 0.01)
 pdf_est = dbilnorm(grid, estim[1], estim[2], estim[3], estim[4], estim[5])
-ggplot() + geom_line(aes(x = grid, y = pdf_est, color = "Bi-Log-Normal Density")) + geom_density(aes(x = jittered_data, color = "Kernel Density Estimate"), kernel = "gaussian") + 
+ggplot() + 
+  geom_line(aes(x = grid, y = pdf_est, color = "Bi-Log-Normal Density")) + 
+  geom_density(aes(x = jittered_data, color = "Kernel Density Estimate"),
+               kernel = "gaussian") + 
   labs(title = "Bi-Log-Normal Density and Kernel Density Estimate", x = "x", y = "y") + 
   scale_color_manual(name = "",
                      breaks=c('Kernel Density Estimate', 'Bi-Log-Normal Density'),
-                     values=c('Kernel Density Estimate'='red', 'Bi-Log-Normal Density'='blue'))
+                     values=c('Kernel Density Estimate'='red',
+                              'Bi-Log-Normal Density'='blue'))
 ```
 
 We can see two very similar curves, supporting our assumption of the bi-log-normal model. This plot is also useful to see that the EM algorithm converged to a reasonable solution.
@@ -128,7 +132,7 @@ cdfbilognorm = function(x, mu1, mu2, sigma1, sigma2, tau) {
 }
 
 # function calculating the negative log likelihood of the binned data (which we want to minimize)
-negloglikelihood = function(par) {
+negloglikelihood = function(par, data, num_inbin) {
   logli = 0 # start at 0 and sum op at each datapoint
   mu1 = par[1]
   mu2 = par[2]
@@ -142,7 +146,8 @@ negloglikelihood = function(par) {
   return(-logli) #return the negative log likelihood
 }
 
-out = optim(estim, negloglikelihood, method = "Nelder-Mead")
+out = optim(par = estim, fn = negloglikelihood, method = "Nelder-Mead", data = data,
+            num_inbin = num_inbin)
 estim_opt = as.numeric(unlist(out[1]))
 mu1_opt = estim_opt[1]
 mu2_opt = estim_opt[2]
@@ -224,44 +229,30 @@ for (i in 1:n_bootstrap) {
   estim_boot[, i] = EM(jittered_boot_data[, i], mu1, mu2, sigma1, sigma2, tau)
 }
 
-# function for negative log likelihood for the binned bootstrapped data to optimize in next step
-negloglikelihood_boot = function(par) {
-  logli = 0 # start at 0 and sum op at each datapoint
-  mu1 = par[1]
-  mu2 = par[2]
-  sigma1 = par[3]
-  sigma2 = par[4]
-  tau = par[5]
-  for (j in 1:length(data$X)) {
-    logli = logli + (binned_bootstrap_data[j, i]) * log((cdfbilognorm(data$endpoint[j], mu1, mu2, sigma1, sigma2, tau) - 
-                       cdfbilognorm(data$startpoint[j], mu1, mu2, sigma1, sigma2, tau)))
-  }
-  return(-logli) #return the negative log likelihood
-}
-
+#use optimizetion as before for the binned bootstrap data
 estim_boot_opt = matrix(nrow = 5, ncol = n_bootstrap)
 for (i in 1:n_bootstrap) {
-  out = optim(estim_boot[, i], negloglikelihood_boot, method="Nelder-Mead")
+  out = optim(par = estim_boot[, i], fn = negloglikelihood, method="Nelder-Mead",
+              data = data, num_inbin = binned_bootstrap_data[, i])
   estim_boot_opt[, i] = as.numeric(unlist(out[1]))
 }
  
 #Calculate the kolmogorov smirnoff statisitc
-#create data to use for ecdf for binned data
+#To calculate it we create data in such a way to create ecdf for binned data
+#That means we will put each datapoint at the end of its bin
 counter = 0
 ecdf_data = rep(0, n)
 for (i in 1:length(num_inbin)) {
-  interval_length = data$endpoint[i] - data$startpoint[i]
   for(j in 1:num_inbin[i]) {
     if (num_inbin[i] == 0) {
       next
     }
-    #ecdf_data[j + counter] = data$startpoint[i] + interval_length / j
     ecdf_data[j + counter] = data$endpoint[i]
   }
   counter = counter + num_inbin[i]
 }
-ecdf_binned = ecdf(ecdf_data)
-grid = seq(from = 0, to = 3.25, by = 0.01)
+ecdf_binned = ecdf(ecdf_data) #now calculate ecdf using the prepared data
+grid = seq(from = 0, to = 3.25, by = 0.01) #grid to compare distribution functions on (for KS statistic)
 kol_smir = 0 
 for (i in 1:length(grid)) {
   a = abs(ecdf_binned(grid[i]) - 
@@ -271,18 +262,16 @@ for (i in 1:length(grid)) {
   }
 }
 
-#calculate T_b^*
+#calculate T_b^* (similar to KS statistic)
 T_b = rep(0, n_bootstrap)
 for (k in 1:n_bootstrap) {
   counter = 0
   ecdf_boot_data = rep(0, ndata_boot)
   for (i in 1:length(data$X)) {
-    interval_length = data$endpoint[i] - data$startpoint[i]
     for(j in 1:binned_bootstrap_data[i, k]) {
       if (binned_bootstrap_data[i, k] == 0) {
         next
       }
-      #ecdf_boot_data[j + counter] = data$startpoint[i] + interval_length / j
       ecdf_boot_data[j + counter] = data$endpoint[i] 
     }
     counter = counter + binned_bootstrap_data[i, k]
@@ -306,13 +295,15 @@ for (k in 1:n_bootstrap) {
   }
 }
 p = 1 / (n_bootstrap + 1) * (a + 1)
-#print(p)
+print(p)
 ```
 Performing these calculations we ovserve a p-value of 0.7722772. This is quite a large p-value and hence we will not reject $H_0$, supporting the assumption of a bi-log-normal model for our data. So we can use our optimized parameters to simulate new datapoints for our snowflake experiment. To finish this section, we provide a final plot containing the empirical CDF of our data and the parametrized CDF using our optimized parameters.
 
 ```{r CDF, echo=FALSE, fig.align='center', fig.cap="Empirical CDF of the original binned data with a bi-log-normal CDF parametrized by our optimized parameters."}
 ecdf_param = cdfbilognorm(grid, mu1_opt, mu2_opt, sigma1_opt, sigma2_opt, tau_opt)
-ggplot() + stat_ecdf(aes(x = ecdf_data, color = "Empirical CDF")) + geom_line(aes(x = grid, y = ecdf_param, color = "Bi-Log-Normal CDF")) + 
+ggplot() + 
+  stat_ecdf(aes(x = ecdf_data, color = "Empirical CDF")) + 
+  geom_line(aes(x = grid, y = ecdf_param, color = "Bi-Log-Normal CDF")) + 
   scale_color_manual(name = "",
                      breaks=c('Empirical CDF', 'Bi-Log-Normal CDF'),
                      values=c('Empirical CDF'='red', 'Bi-Log-Normal CDF'='blue')) + 
