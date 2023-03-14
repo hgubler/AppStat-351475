@@ -44,6 +44,7 @@ library(ggplot2)
 library(pROC)
 library(forcats)
 library(ggcorrplot)
+library(car)
 load("2_online_shopping.RData")
 data = Data # rename to "data"
 rm(Data)
@@ -61,7 +62,8 @@ data = data %>% mutate_if(is.character, as.factor) # change character variables 
 data = data %>% mutate_if(is.integer, as.numeric) # change integers variables to numeric
 data = data %>% mutate_if(is.logical, as.factor) # change logical variables to factors
 data = data %>% mutate_at(c("visitor_type", "region", "browser", "operating_systems",
-                            "traffic_type"), as.factor) # individually change some variables to factors
+                            "traffic_type"), as.factor) # individually change 
+# some variables to factors
 ```
 
 Now we can graphically explore our variables - by looking at the histograms.
@@ -78,21 +80,88 @@ ggplot(data_long, aes(x = value)) +
 
 We see that some variables we treat as factors have some levels with very few observations (e.g the factors "operating systems" or "browser"). Levels with a small number of observations can be problematic because the model fits a single parameter for these levels which will have high variance due to the small number of datapoints. Following this reasoning we merge small levels (less than 30 observations) within one factor variable into a group called "others". 
 
-TBD log/sqrt transform numerical variables that are right scewed (Is e.g. administrative right scewed because it has no left tail?)
-```{r factormerge}
-# loop over the factor variables and merge categories with small number of observations together
+For the numerical variables, we can see that a lot of them have a right scewed histogram, so we could log transform them to have more evenly spread out values. However they all have a lot of zero values so it we rather take the square root of those variables, as it has a similar effect as the logarithm. Namely we transform the numerical variables "administrative" "administrative_duration", "bounce_rates", "exit_rates", "Informational", "Informational_duration", "page_values", "product_related" and "product_related_duration" by applying the square root.
+
+```{r factormerge&transformations}
+# loop over the factor variables and merge categories with small number of 
+# observations together
 for (i in 1:length(data)) {
   if(is.factor(data[, i])) {
     tt = table(data[, i])
     data[, i] = fct_collapse(data[, i], "other" = names(tt[tt < 40]))
   }
 }
+
+# take the square root of the variables mentioned above
+data = data %>% 
+  mutate(administrative = administrative^(1/2),
+         administrative_duration = administrative_duration^(1/2), 
+         bounce_rates = bounce_rates^(1/2),
+         exit_rates = exit_rates^(1/2),
+         informational = informational^(1/2),
+         informational_duration = informational_duration^(1/2), 
+         page_values = page_values^(1/2), 
+         product_related = product_related^(1/2),
+         product_related_duration = product_related_duration^(1/2))
 ```
+
 
 Now we are ready to build our first models in the next section.
 
 # Logistic Regression Model Building
 
-In this section, ...
+In this section we stepwise build a logistic regression model for our data. To compare two different models, we use deviance tests. 
 
+TBD: Introduce deviance test
+
+Question: Why use deviance test and not just likelihood ratio test with chi square?
+
+For a starting point, we fit a logistic model including all the predictors available in the data that we prepared in the section before. After that we look at the Type II Anova table. Type II Anova compares, for each predictor, the full model with the model excluding that specific predictor by a deviance test.
+
+```{r type2anova}
+gm_all = glm(purchase ~ ., data=data, family="binomial") # model including all predictors
+anova = Anova(gm_all, type = "II", test.statistic = "LR") # perform type 2 Anova on full
+# model
+library(knitr)
+kable(anova, caption = "Type II Anova table for a logistic regression model including all predictors from the data.")
+```
+
+The type II Anova table suggests us that the predictors "product_related_duration", "bounce_rates", "exit_rates", "page_vales", "month", "traffic_type" and "visitor_type" are significant at level 0.05. So we proceed with a model containing only these predictors. For this model, we analyze the residuals by plotting the residuals vs each predictor and adding a smoother to the plots.
+
+```{r residualplot, fig.align='center', fig.cap="Residuals vs predictor plot with a smoother. The residuals come from a logistic regression model using only the variables that were selected by the type II Anova table"}
+# build a model including only the significant predictors from anova type 2 
+gm_sig = glm(purchase ~ product_related_duration + 
+               bounce_rates + 
+               exit_rates + 
+               page_values +
+               month + 
+               traffic_type + 
+               visitor_type,
+             data=data, family="binomial") 
+
+# create residuals plot for each predictor in one figure 
+data_num %>% 
+  select(c(product_related_duration, bounce_rates, exit_rates, page_values, month,
+           traffic_type, visitor_type)) %>%
+  mutate(res = resid(gm_sig)) %>%
+  pivot_longer(-res) %>% 
+  ggplot(aes(y = res, x = value)) + 
+  facet_wrap( ~ name, scales = "free") + 
+  geom_point() + 
+  geom_smooth() + # add a smoother to the residual plots
+  ylab("Residuals") +
+  xlab("Predictor Value") +
+  ggtitle("Residuals vs Predictor")
+```
+ First note that the residuals are often organized in two clouds since the response variable is binary, so it is useful to use a smoother to detect patterns. Also, it looks like we could have a quadratic dependence on page_values as well as some non-linear dependence on product_related_duration.
+ 
+ ## Testing for Interactions
+ 
+ ## Final model
+ 
+ TBD Give coefficients of final model
+ 
+ ## Evaliate AUC
+ 
+ maybe also evaluate accuracy?
 
