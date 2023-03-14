@@ -6,10 +6,93 @@ output: bookdown::html_document2
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 ```
 
 # Introduction
 
-In this report, we work with online shopping data where one observation corresponds to sessions, i.e instances of a user visiting an e-commerce website. These sessions take some time and may or may not lead to a purchase. We will fit a logistic regression model for the binary response "purchase", where we have 17 predictors available. 
+In this report, we work with online shopping data where one observation corresponds to sessions, i.e instances of a user visiting an e-commerce website. These sessions take some time and may or may not lead to a purchase. We will fit a logistic regression model for the binary response variable "purchase", where we have 17 predictors available. 
 The outline of the remainder of this project is as follows: We start by graphically exploring and wrangling the data. After that we use the prepared data to build a logistic regression. Finally we evaluate the performance of our final model using the Area Under Curve (AUC) criterion.
+
+# Data Exploration and Wrangling
+ 
+ As mentioned, we have 17 predictors available to build a model for the binary response "purchase". These predictor give information about the user's session. As a first step we change the names of the variables to have a consistent naming style. After these name changes, we have the following predictors.
+ 
+* `administrative` Number of administrative-type pages that the user visited.
+* `administrative_duration` Time spent on administrative pages.
+* `informational` Number of informational-type pages visited.
+* `informational_duration` Time spent on informational-type pages.
+* `product_related` Number of product-related-type pages visited.
+* `product_related_duration` Time spent on product-related-type pages.
+* `bounce_rates` Average bounce rate of pages visited (for a specific webpage. the bounce rate is the percentage of users who enter and leave the webpage without triggering any request during their sessions).
+* `exit_rates` Average exit rate of pages visited (for a specific webpage, the exit rate is the proportion of page views to the page that were last in the session).
+* `page_values` Average page value of pages visited (for a specific webpage, the page value gives an idea of how much each page contributes to the site’ revenue).
+* `special_day` Value in [0, 1] indicating closeness of the session to a special day (e.g. Mother’s day, etc.).
+* `month` Which month the session took place.
+* `operating_systems` Operating systems of the users coded as integers.
+* `browser` Web browsers of the users coded as integers.
+* `region` Geographic region in which the user is located coded as integers.
+* `traffic_type` Where from the user arrived at the site (e.g. ad banner, SMS link, direct URL, etc.) coded as integers.
+* `visitor_type` Self explanator, e.g. returning or new visitor to the webpage.
+* `weekend` Binary indicator of whether the session took place during a weekend.
+
+The next step is to decide which variables we include as factors in the model. For our model, we use "month", "operating_systems", "browser", "region", "traffic_type", "visitor_type" and "weekend" as factors, while the remaining predictors are treated as numeric variables. 
+```{r datawrangle}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(pROC)
+library(forcats)
+library(ggcorrplot)
+load("2_online_shopping.RData")
+data = Data # rename to "data"
+rm(Data)
+# first change the name to snake_case
+data = data %>% rename(purchase = Revenue, administrative = Administrative,
+                       administrative_duration = Administrative_Duration, 
+                       informational = Informational, informational_duration = Informational_Duration,
+                       product_related = ProductRelated, product_related_duration = ProductRelated_Duration,
+                       bounce_rates = BounceRates, exit_rates = ExitRates,
+                       page_values = PageValues, special_day = SpecialDay, month = Month,
+                       operating_systems = OperatingSystems, browser = Browser, region = Region,
+                       traffic_type = TrafficType, visitor_type = VisitorType, weekend = Weekend) 
+#str(data) # to see which variables are factors and which are numeric
+data = data %>% mutate_if(is.character, as.factor) # change character variables to factors
+data = data %>% mutate_if(is.integer, as.numeric) # change integers variables to numeric
+data = data %>% mutate_if(is.logical, as.factor) # change logical variables to factors
+data = data %>% mutate_at(c("visitor_type", "region", "browser", "operating_systems",
+                            "traffic_type"), as.factor) # individually change some variables to factors
+```
+
+Now we can graphically explore our variables - by looking at the histograms.
+```{r histograms, fig.align='center', fig.width=12, fig.height=8, fig.cap="Histograms of all the variables in our dataset."}
+data_num = data %>% mutate_if(is.factor, as.numeric) # data with all variables as numeric
+data_long <- gather(data_num, key = "predictor", value = "value")
+
+# create histogram plot with facets
+ggplot(data_long, aes(x = value)) + 
+  geom_histogram() + 
+  facet_wrap(~ predictor, scales = "free") +
+  ggtitle("Histograms of our Data")
+```
+
+We see that some variables we treat as factors have some levels with very few observations (e.g the factors "operating systems" or "browser"). Levels with a small number of observations can be problematic because the model fits a single parameter for these levels which will have high variance due to the small number of datapoints. Following this reasoning we merge small levels (less than 30 observations) within one factor variable into a group called "others". 
+
+TBD log/sqrt transform numerical variables that are right scewed (Is e.g. administrative right scewed because it has no left tail?)
+```{r factormerge}
+# loop over the factor variables and merge categories with small number of observations together
+for (i in 1:length(data)) {
+  if(is.factor(data[, i])) {
+    tt = table(data[, i])
+    data[, i] = fct_collapse(data[, i], "other" = names(tt[tt < 40]))
+  }
+}
+```
+
+Now we are ready to build our first models in the next section.
+
+# Logistic Regression Model Building
+
+In this section, ...
+
+

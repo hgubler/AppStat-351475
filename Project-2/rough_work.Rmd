@@ -111,7 +111,7 @@ data %>%
   geom_smooth()
 ```
 
-Look at cooks distance to detect outliers
+Look at cooks distance to detect outliers (do it in the end when we have final model and compare AUC with outlier and without)
 ```{r}
 cooks_distance = cooks.distance(gm_all)
 #plot(cd)
