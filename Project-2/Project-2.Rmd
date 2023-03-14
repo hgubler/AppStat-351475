@@ -1,0 +1,15 @@
+---
+title: "Project-1"
+author: "Hannes Gubler"
+date: "14.03.2023"
+output: bookdown::html_document2
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+
+In this report, we work with online shopping data where one observation corresponds to sessions, i.e instances of a user visiting an e-commerce website. These sessions take some time and may or may not lead to a purchase. We will fit a logistic regression model for the binary response "purchase", where we have 17 predictors available. 
+The outline of the remainder of this project is as follows: We start by graphically exploring and wrangling the data. After that we use the prepared data to build a logistic regression. Finally we evaluate the performance of our final model using the Area Under Curve (AUC) criterion.
