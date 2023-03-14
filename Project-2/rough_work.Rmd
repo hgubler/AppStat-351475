@@ -13,8 +13,8 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 Shopping data coming from the e-commerce website itself, containing a revenue variable (response variable) indicating whether a purchase was made or not and several predictor variables)
 
 # Data preparation
-change variable names to same style. Change all variables given as characters to factors and in the end change some specific variables to factors where it just makes sense. After that look at all the factor variables. Merge small groups together to one group "other".
-```{r dataprep}
+change variable names to same style. Change all variables given as characters to factors and in the end change some specific variables to factors where it just makes sense. Look at all the factor variables. Merge small groups together to one group "other".
+```{r namechange}
 library(dplyr)
 library(tidyr)
 library(ggplot2)
@@ -49,17 +49,85 @@ for (i in 1:length(data)) {
 }
 ```
 
+
+# Graphical Data Exploration
+
+Look at histograms of data
+
+```{r histograms}
+data_num = data %>% mutate_if(is.factor, as.numeric) # data with all variables as numeric
+data_long <- gather(data_num, key = "predictor", value = "value")
+
+# create histogram plot with facets
+ggplot(data_long, aes(x = value)) + 
+  geom_histogram() + 
+  facet_wrap(~ predictor, scales = "free") 
+
+```
+
+We see that most factor variables have levels with only very few observations. If we fit a model containing a categorocal variable with few observations for a level, we fit a parameter for this level and hence a single parameter for very few observations. This can lead to high variance in our predictor. Hence it before we start creating models, for each categorical variable we merch small categories (<40) together. Also
+
 # First model 
 
-First we fit a generalized linear model including all the variables and plot residual vs variable plot for each variable.
-```{r data exploration}
-gm_all = glm(purchase ~ ., data=data, family="binomial")
-# do facetwrap
-data %>% mutate(res = resid(gm_all)) %>% mutate_if(is.factor, as.numeric) %>% 
-  mutate_if(is.integer, as.numeric) %>% pivot_longer(-res) %>% 
-  ggplot(aes(y = res, x = value)) + facet_wrap( ~ name, scales = "free") + 
-  geom_point() + stat_smooth(span = 0)
+Look at all the factor variables. Merge small groups together to one group "other".
+Then compare model with all categories and model with merged categories.
+
+```{r}
+gm_all = glm(purchase ~ ., data=data, family="binomial") # model with merged categories
+AUC_eval <- function(gmodel,Data){
+  set.seed(517)
+  Folds <- matrix(sample(1:dim(Data)[1]), ncol=5)
+  AUC <- rep(0,5)
+  for(k in 1:5){
+    train <- Data[-Folds[,k],]
+    test <- Data[Folds[,k],]
+    my_gm <- glm(gmodel$formula, family="binomial", data=train)
+    test_pred <- predict(my_gm, newdata = test, type="response")
+    AUC[k] <- auc(test$purchase,test_pred)
+  }
+  return(mean(AUC))
+}
+print(AUC_eval(gm_all, Data = data))
+
+gm_inter = glm(purchase ~ . + weekend:visitor_type, data = data, family="binomial")
+gm_square = glm(purchase ~. + I(page_values^2), data = data, family = "binomial")
+gm_exp = glm(purchase ~. + I(1 / (1 + exp(product_related_duration))), data = data, family="binomial")
+print(AUC_eval(gm_inter, Data = data))
+print(AUC_eval(gm_square, data))
+print(AUC_eval(gm_exp, data))
 ```
+
+
+Plot residuals of model with merged categories
+```{r dataexploration}
+# do facetwrap
+data %>%
+  mutate(res = resid(gm_all)) %>%
+  mutate_if(is.factor, as.numeric) %>% 
+  pivot_longer(-res) %>% 
+  ggplot(aes(y = res, x = value)) + 
+  facet_wrap( ~ name, scales = "free") + 
+  geom_point() + 
+  geom_smooth()
+```
+
+Look at cooks distance to detect outliers
+```{r}
+cooks_distance = cooks.distance(gm_all)
+#plot(cd)
+cook_data <- data.frame(observation = 1:length(cooks_distance), cooks_distance = cooks_distance)
+# Plot Cook's distance using ggplot
+ggplot(cook_data, aes(x = observation, y = cooks_distance)) +
+  geom_point() +
+  geom_hline(yintercept = 4/(length(cooks_distance)-2), color = "red", linetype = "dashed") +
+  labs(x = "Observation", y = "Cook's distance") +
+  ggtitle("Cook's distance plot") + 
+  geom_point(x = 7607, y = cooks_distance[7607], col = "red")
+which.max(cooks_distance)
+data[7607, ]
+```
+
+
 We can see that maybe we need to include a quadratic dependency of page_values.
 We create diagnostic plots with a linear model
 
@@ -74,20 +142,9 @@ data %>% mutate(res = resid(lm_all)) %>% mutate_if(is.factor, as.numeric) %>%
 
 We can also look at the correlation between all the variables.
 ```{r correlationplot}
-data_num = data %>% mutate_if(is.factor, as.numeric)
 corr <- round(cor(data_num), 1)
 ggcorrplot(corr, ggtheme = ggplot2::theme_gray)
 ```   
-Also look at histograms of data
 
-```{r}
-data_long <- gather(data_num, key = "predictor", value = "value")
 
-# create histogram plot with facets
-ggplot(data_long, aes(x = value)) + 
-  geom_histogram() + 
-  facet_wrap(~ predictor, scales = "free") 
-
-```
-Maybe use special day as factor for yes or no?
 

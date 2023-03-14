@@ -132,6 +132,8 @@ cdfbilognorm = function(x, mu1, mu2, sigma1, sigma2, tau) {
 }
 
 # function calculating the negative log likelihood of the binned data (which we want to minimize)
+#' test
+#' 
 negloglikelihood = function(par, data, num_inbin) {
   logli = 0 # start at 0 and sum op at each datapoint
   mu1 = par[1]
