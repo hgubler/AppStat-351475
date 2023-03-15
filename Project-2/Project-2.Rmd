@@ -93,16 +93,27 @@ for (i in 1:length(data)) {
 }
 
 # take the square root of the variables mentioned above
-data = data %>% 
+data = data %>%
   mutate(administrative = administrative^(1/2),
-         administrative_duration = administrative_duration^(1/2), 
+         administrative_duration = administrative_duration^(1/2),
          bounce_rates = bounce_rates^(1/2),
          exit_rates = exit_rates^(1/2),
          informational = informational^(1/2),
-         informational_duration = informational_duration^(1/2), 
-         page_values = page_values^(1/2), 
+         informational_duration = informational_duration^(1/2),
+         page_values = page_values^(1/2),
          product_related = product_related^(1/2),
          product_related_duration = product_related_duration^(1/2))
+
+# data = data %>%
+#   mutate(administrative = administrative^(1/4),
+#          administrative_duration = administrative_duration^(1/4),
+#          bounce_rates = bounce_rates^(1/4),
+#          exit_rates = exit_rates^(1/4),
+#          informational = informational^(1/4),
+#          informational_duration = informational_duration^(1/4),
+#          page_values = page_values^(1/4),
+#          product_related = product_related^(1/4),
+#          product_related_duration = product_related_duration^(1/4))
 ```
 
 
@@ -120,16 +131,24 @@ For a starting point, we fit a logistic model including all the predictors avail
 
 ```{r type2anova}
 gm_all = glm(purchase ~ ., data=data, family="binomial") # model including all predictors
-anova = Anova(gm_all, type = "II", test.statistic = "LR") # perform type 2 Anova on full
+anova2 = Anova(gm_all, type = "II", test.statistic = "LR") # perform type 2 Anova on full
 # model
 library(knitr)
-kable(anova, caption = "Type II Anova table for a logistic regression model including all predictors from the data.")
+kable(anova2, caption = "Type II Anova table for a logistic regression model including all predictors from the data.")
 ```
 
 The type II Anova table suggests us that the predictors "product_related_duration", "bounce_rates", "exit_rates", "page_vales", "month", "traffic_type" and "visitor_type" are significant at level 0.05. So we proceed with a model containing only these predictors. For this model, we analyze the residuals by plotting the residuals vs each predictor and adding a smoother to the plots.
 
 ```{r residualplot, fig.align='center', fig.cap="Residuals vs predictor plot with a smoother. The residuals come from a logistic regression model using only the variables that were selected by the type II Anova table"}
 # build a model including only the significant predictors from anova type 2 
+gm_sig4 = glm(purchase ~ product_related_duration + 
+               administrative_duration +
+               bounce_rates + 
+               page_values +
+               month + 
+               traffic_type + 
+               visitor_type,
+             data=data, family="binomial")
 gm_sig = glm(purchase ~ product_related_duration + 
                bounce_rates + 
                exit_rates + 
@@ -153,7 +172,75 @@ data_num %>%
   xlab("Predictor Value") +
   ggtitle("Residuals vs Predictor")
 ```
- First note that the residuals are often organized in two clouds since the response variable is binary, so it is useful to use a smoother to detect patterns. Also, it looks like we could have a quadratic dependence on page_values as well as some non-linear dependence on product_related_duration.
+ First note that the residuals are often organized in two clouds since the response variable is binary, so it is useful to use a smoother to detect patterns. Also, it looks like we could have a quadratic dependence on page_values. So we fit a model containing all predictors from before together with a quadratic dependence on page_values. We then compare the two models with and without quadratic dependence on page_values with an Anova model-submodel test.
+```{r anovaquad}
+# fit a model with the significant predictors from before together with quadratic
+# dependence on page_values
+gm_sig_quad = glm(purchase ~ product_related_duration + 
+               bounce_rates + 
+               exit_rates + 
+               page_values +
+               I(page_values^2) +
+               month + 
+               traffic_type + 
+               visitor_type,
+             data=data, family="binomial") 
+anovaquad = anova(gm_sig, gm_sig_quad, test = "LR") # perform anova model submodel test
+anovaquad_table <- as.data.frame(anovaquad)
+anovaquad_table[1, 3:5] = c("", "", "") # remove NA values from table
+# Add row names to the data frame
+row.names(anovaquad_table) <- c("Without quadratic dependence on page_values",
+                                  "With quadratic dependence on page_values")
+# Create table
+kable(anovaquad_table, caption = "Anova Model-Submodel table to test for quadratic dependence on page_values")
+```
+
+The Anova test suggests us to keep the quadratic dependency on page_values, so we proceed with this model. We can check if the residuals plot for the predictor page_value now looks better.
+```{r pagevalueresidquad, fig.align='center', out.width="50%", fig.cap="Residuals vs the predictor page_values after including a quadratic dependency on page_values into the model."}
+dataplot = data.frame(x = data$page_values, y = gm_sig_quad$residuals)
+ggplot(aes(x = data$page_values, y = gm_sig_quad$residuals), data = dataplot) +
+  geom_point() + 
+  geom_smooth() +
+  ylab("Residuals") +
+  xlab("Predictor Value") +
+  ggtitle("Residuals vs Predictor")
+```
+
+ The residuals plot already looks a bit better but we can still observe some slight non-linearity. So we can also add a cubic term of page_values to the model. As before, we use the model-submodel Anova table to compare the model with cubic dependency on page_values and without cubic dependency on page_values (but still including quadratic dependency on page_values.)
+```{r anovacube}
+# fit a model with the significant predictors from before together with quadratic
+# dependence on page_values
+gm_sig_cube = glm(purchase ~ product_related_duration + 
+               bounce_rates + 
+               exit_rates + 
+               page_values +
+               I(page_values^2) +
+               I(page_values^3) +
+               month + 
+               traffic_type + 
+               visitor_type,
+             data=data, family="binomial") 
+anovacube = anova(gm_sig_quad, gm_sig_cube, test = "LR") # perform anova model submodel test
+anovacube_table <- as.data.frame(anovacube)
+anovacube_table[1, 3:5] = c("", "", "") # remove NA values from table
+# Add row names to the data frame
+row.names(anovacube_table) <- c("Without cubic dependence on page_values",
+                                  "With cubic dependence on page_values")
+# Create table
+kable(anovacube_table, caption = "Anova Model-Submodel table to test for quadratic dependence on page_values")
+```
+
+Again, the Anova table suggests us to keep the cubic dependency on page_values. Also we again look at the residuals vs predictor plot for page_values.
+```{r pagevalueresidcube, fig.align='center', out.width="50%", fig.cap="Residuals vs the predictor page_values after including a cubic dependency on page_values into the model."}
+dataplot = data.frame(x = data$page_values, y = gm_sig_cube$residuals)
+ggplot(aes(x = data$page_values, y = gm_sig_cube$residuals), data = dataplot) +
+  geom_point() + 
+  geom_smooth() +
+  ylab("Residuals") +
+  xlab("Predictor Value") +
+  ggtitle("Residuals vs Predictor")
+```
+We now almost reached the desirable flat line for the residuals plot. We won't add any more higher order terms for page_values for two reasons. First, we should not overinterpret the residuals plots for the logistic regression (since FWL not hold?) and secondly adding too many terms of higher order could lead to overfit.
  
  ## Testing for Interactions
  
@@ -162,6 +249,23 @@ data_num %>%
  TBD Give coefficients of final model
  
  ## Evaliate AUC
+ 
+```{r AUC}
+AUC_eval <- function(gmodel,Data){
+  set.seed(517)
+  Folds <- matrix(sample(1:dim(Data)[1]), ncol=5)
+  AUC <- rep(0,5)
+  for(k in 1:5){
+    train <- Data[-Folds[,k],]
+    test <- Data[Folds[,k],]
+    my_gm <- glm(gmodel$formula, family="binomial", data=train)
+    test_pred <- predict(my_gm, newdata = test, type="response")
+    AUC[k] <- auc(test$purchase,test_pred)
+  }
+  return(mean(AUC))
+}
+```
+ 
  
  maybe also evaluate accuracy?
 
