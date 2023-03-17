@@ -43,8 +43,24 @@ library(tidyr)
 library(ggplot2)
 library(pROC)
 library(forcats)
-library(ggcorrplot)
-library(car)
+library(car) # for Anova function
+library(flexmix) # for BIC
+library(knitr) # for tables
+library("tibble") # to change rownames of a dataframe to a coloumn
+# function for AUC
+AUC_eval <- function(gmodel,Data){
+  set.seed(517)
+  Folds <- matrix(sample(1:dim(Data)[1]), ncol=5)
+  AUC <- rep(0,5)
+  for(k in 1:5){
+    train <- Data[-Folds[,k],]
+    test <- Data[Folds[,k],]
+    my_gm <- glm(gmodel$formula, family="binomial", data=train)
+    test_pred <- predict(my_gm, newdata = test, type="response")
+    AUC[k] <- auc(test$purchase,test_pred)
+  }
+  return(mean(AUC))
+} 
 load("2_online_shopping.RData")
 data = Data # rename to "data"
 rm(Data)
@@ -57,9 +73,10 @@ data = data %>% rename(purchase = Revenue, administrative = Administrative,
                        page_values = PageValues, special_day = SpecialDay, month = Month,
                        operating_systems = OperatingSystems, browser = Browser, region = Region,
                        traffic_type = TrafficType, visitor_type = VisitorType, weekend = Weekend) 
-#str(data) # to see which variables are factors and which are numeric
-data = data %>% mutate_if(is.character, as.factor) # change character variables to factors
-data = data %>% mutate_if(is.integer, as.numeric) # change integers variables to numeric
+data = data %>% mutate_if(is.character, as.factor) # change character variables to
+# factors
+data = data %>% mutate_if(is.integer, as.numeric) # change integers variables to
+# numeric
 data = data %>% mutate_if(is.logical, as.factor) # change logical variables to factors
 data = data %>% mutate_at(c("visitor_type", "region", "browser", "operating_systems",
                             "traffic_type"), as.factor) # individually change 
@@ -68,7 +85,8 @@ data = data %>% mutate_at(c("visitor_type", "region", "browser", "operating_syst
 
 Now we can graphically explore our variables - by looking at the histograms.
 ```{r histograms, fig.align='center', fig.width=12, fig.height=8, fig.cap="Histograms of all the variables in our dataset."}
-data_num = data %>% mutate_if(is.factor, as.numeric) # data with all variables as numeric
+data_num = data %>% mutate_if(is.factor, as.numeric) # data with all variables 
+# as numeric
 data_long <- gather(data_num, key = "predictor", value = "value")
 
 # create histogram plot with facets
@@ -103,17 +121,6 @@ data = data %>%
          page_values = page_values^(1/2),
          product_related = product_related^(1/2),
          product_related_duration = product_related_duration^(1/2))
-
-# data = data %>%
-#   mutate(administrative = administrative^(1/4),
-#          administrative_duration = administrative_duration^(1/4),
-#          bounce_rates = bounce_rates^(1/4),
-#          exit_rates = exit_rates^(1/4),
-#          informational = informational^(1/4),
-#          informational_duration = informational_duration^(1/4),
-#          page_values = page_values^(1/4),
-#          product_related = product_related^(1/4),
-#          product_related_duration = product_related_duration^(1/4))
 ```
 
 
@@ -121,25 +128,28 @@ Now we are ready to build our first models in the next section.
 
 # Logistic Regression Model Building
 
-In this section we stepwise build a logistic regression model for our data. To compare two different models, we use deviance tests. 
+In this section we stepwise build a logistic regression model to predict purchase. To compare two different models, we use Anova tables with the likelihood ratio test (which follows a Chi-squared distribution asymptotically), as well as the area under the curve (AUC) and the BIC criterion. 
 
-TBD: Introduce deviance test
-
-Question: Why use deviance test and not just likelihood ratio test with chi square?
-
-For a starting point, we fit a logistic model including all the predictors available in the data that we prepared in the section before. After that we look at the Type II Anova table. Type II Anova compares, for each predictor, the full model with the model excluding that specific predictor by a deviance test.
+For a starting point, we fit a logistic model including all the predictors available in the data that we prepared in the section before. After that we look at the Type II Anova table. Type II Anova compares, for each predictor, the full model with the model excluding that specific predictor by a likelihood ratio test.
 
 ```{r type2anova}
-gm_all = glm(purchase ~ ., data=data, family="binomial") # model including all predictors
-anova2 = Anova(gm_all, type = "II", test.statistic = "LR") # perform type 2 Anova on full
-# model
-library(knitr) # library for tables
+gm_all = glm(purchase ~ ., data=data, family="binomial") # model including all
+# predictors
+anova2 = Anova(gm_all, type = "II", test.statistic = "LR") # perform type 2 Anova 
+# on full model
 # create table for anova table and round results to 3 digits for readability
-kable(anova2, caption = "Type II Anova table for a logistic regression model including all predictors from the data.", digits = 3)
+kable(anova2, 
+      caption = "Type II Anova table for a logistic regression model including all
+      predictors from the data. For each predictor, the full model is compared to the
+      model with all variables except that specific predictor by a likelihood
+      ratio test.",
+      digits = 3,
+      label = "type2anova")
 ```
 
-The type II Anova table suggests us that the predictors "product_related_duration", "bounce_rates", "exit_rates", "page_vales", "month", "traffic_type" and "visitor_type" are significant at level 0.05. So we fit with a submodel containing only these predictors. But we still need to verify this submodel because we could run into multiple testing issues. So we compare the full model with the sub-model by an Anova model-submodel test, the BIC and the AUC.
+The type II Anova table suggests us that the predictors "product_related_duration", "bounce_rates", "exit_rates", "page_vales", "month", "traffic_type" and "visitor_type" are significant at level 0.05. So we fit with a submodel containing only these predictors. But we still need to analyze this submodel because we could run into multiple testing issues. So we compare the full model with the sub-model by an Anova model-submodel test, the BIC and the AUC.
 ```{r Anovamodsub}
+# fit a model containing only significant variables from above
 gm_sig = glm(purchase ~ product_related_duration + 
                bounce_rates + 
                exit_rates + 
@@ -148,25 +158,12 @@ gm_sig = glm(purchase ~ product_related_duration +
                traffic_type + 
                visitor_type,
              data=data, family="binomial") 
+# perform anova model-submodel test and store results in table
 anovamodsub = anova(gm_sig, gm_all, test = "LR")
 anovamodsub_table <- as.data.frame(anovamodsub)
 row.names(anovamodsub_table) <- c("Submodel",
                                   "Full model")
-library(flexmix) # for BIC
-# function for AUC
-AUC_eval <- function(gmodel,Data){
-  set.seed(517)
-  Folds <- matrix(sample(1:dim(Data)[1]), ncol=5)
-  AUC <- rep(0,5)
-  for(k in 1:5){
-    train <- Data[-Folds[,k],]
-    test <- Data[Folds[,k],]
-    my_gm <- glm(gmodel$formula, family="binomial", data=train)
-    test_pred <- predict(my_gm, newdata = test, type="response")
-    AUC[k] <- auc(test$purchase,test_pred)
-  }
-  return(mean(AUC))
-}
+# Calculate BIC and AUC of the desired models and add it to tabledata
 BIC_full = BIC(gm_all)
 BIC_sub = BIC(gm_sig)
 AUC_full = AUC_eval(gm_all, Data = data)
@@ -175,24 +172,16 @@ anovamodsub_table = anovamodsub_table %>%
   mutate(AUC = c(AUC_sub, AUC_full), BIC = c(BIC_sub, BIC_full))
 
 # Create table and round results to 3 digits for readability
-kable(anovamodsub_table, caption = "", digits = 3)
+kable(anovamodsub_table, 
+      caption = "Anova Model-Submodel test as well as AUC and BIC to test the
+      model containing only the significant variables from table
+      (\\@ref(tab:type2anova)) vs the model containing all the variables.", digits = 3)
 ```
 All these results support the submodel as it has a higher AUC, lower BIC and the Anova model-submodel test suggests to not reject the null hypothesis (submodel) at a level 0.05.
 
-So we proceed with the submodel from above and analyze its residuals by plotting the residuals vs each predictor and adding a smoother to the plots.
+So we proceed with the submodel from above and analyze its residuals by plotting the residuals vs each predictor and adding a smoother to the plots (except for visitor_type which only takes 3 values).
 
-```{r residualplot, fig.align='center', fig.cap="Residuals vs predictor plot with a smoother. The residuals come from a logistic regression model using only the variables that were selected by the type II Anova table"}
-# build a model including only the significant predictors from anova type 2 
-# gm_sig4 = glm(purchase ~ product_related_duration + 
-#                administrative_duration +
-#                bounce_rates + 
-#                page_values +
-#                month + 
-#                traffic_type + 
-#                visitor_type,
-#              data=data, family="binomial")
-
-
+```{r residualplot, fig.align='center', fig.cap="Residuals vs predictor plot with a smoother. The residuals come from a logistic regression model using only the variables that were selected by the type II Anova table.", warning=FALSE}
 # create residuals plot for each predictor in one figure 
 data_num %>% 
   select(c(product_related_duration, bounce_rates, exit_rates, page_values, month,
@@ -207,7 +196,7 @@ data_num %>%
   xlab("Predictor Value") +
   ggtitle("Residuals vs Predictor")
 ```
- First note that the residuals are often organized in two clouds since the response variable is binary, so it is useful to use a smoother to detect patterns. Also, it looks like we could have a quadratic dependence on page_values. So we fit a model containing all predictors from before together with a quadratic dependence on page_values. We then compare the two models with and without quadratic dependence on page_values with an Anova model-submodel test, BIC and AUC.
+ First note that the residuals are often organized in two clouds since the response variable is binary, so it is useful to use a smoother to detect patterns. Also, it looks like we could have a quadratic dependence on page_values. So we fit a model containing all predictors from the current model together with a quadratic dependence on page_values. We then compare the two models with and without quadratic dependence on page_values with an Anova model-submodel test, AUC and BIC
 ```{r anovaquad}
 # fit a model with the significant predictors from before together with quadratic
 # dependence on page_values
@@ -223,17 +212,22 @@ gm_sig_quad = glm(purchase ~ product_related_duration +
 anovaquad = anova(gm_sig, gm_sig_quad, test = "LR") # perform anova model submodel test
 anovaquad_table <- as.data.frame(anovaquad)
 # Add row names to the data frame
-row.names(anovaquad_table) <- c("Without quadratic dependence on page_values",
-                                  "With quadratic dependence on page_values")
+row.names(anovaquad_table) <- c("Model without quadratic dependence",
+                                  "Model with quadratic dependence")
+# calculate AUC and BIC for the new model and store it in the table
 BIC_quad = BIC(gm_sig_quad)
 AUC_quad = AUC_eval(gm_sig_quad, Data = data)
 anovaquad_table = anovaquad_table %>%
   mutate(AUC = c(AUC_sub, AUC_quad), BIC = c(BIC_sub, BIC_quad))
 # Create table and round to 3 digits for better readability
-kable(anovaquad_table, caption = "Anova Model-Submodel table to test for quadratic dependence on page_values", digits = 3)
+kable(anovaquad_table, 
+      caption = "Anova Model-Submodel test as well as AUC and BIC to test if we
+      should include a quadratic dependence on page_values in our model.",
+      digits = 3)
 ```
 
 The Anova test suggests us to keep the quadratic dependency on page_values, so we proceed with this model. We check if the residuals plot for the predictor page_value now looks better.
+
 ```{r pagevalueresidquad, fig.align='center', out.width="50%", fig.cap="Residuals vs the predictor page_values after including a quadratic dependency on page_values into the model."}
 dataplot = data.frame(x = data$page_values, y = gm_sig_quad$residuals)
 ggplot(aes(x = data$page_values, y = gm_sig_quad$residuals), data = dataplot) +
@@ -258,29 +252,35 @@ gm_sig_cube = glm(purchase ~ product_related_duration +
                traffic_type + 
                visitor_type,
              data=data, family="binomial") 
-anovacube = anova(gm_sig_quad, gm_sig_cube, test = "LR") # perform anova model submodel test
+anovacube = anova(gm_sig_quad, gm_sig_cube, test = "LR") # perform anova model 
+# submodel test
 anovacube_table <- as.data.frame(anovacube)
+# calculate AUC and BIC for the new model and store it in the table
 BIC_cube = BIC(gm_sig_cube)
 AUC_cube = AUC_eval(gm_sig_cube, Data = data)
 anovacube_table = anovacube_table %>% 
   mutate(AUC = c(AUC_quad, AUC_cube), BIC = c(BIC_quad, BIC_cube))
 # Add row names to the data frame
-row.names(anovacube_table) <- c("Without cubic dependence on page_values",
-                                  "With cubic dependence on page_values")
+row.names(anovacube_table) <- c("Model without cubic dependence",
+                                  "Model with cubic dependence")
 # Create table
-kable(anovacube_table, caption = "Anova Model-Submodel table to test for quadratic dependence on page_values", digits = 3)
+kable(anovacube_table, 
+      caption = "Anova Model-Submodel test as well as AUC and BIC to test if we
+      should include a quadratic dependence on page_values in our model.", 
+      digits = 3)
 ```
 
-Again, the Anova table, AUC and BIC suggest us to keep the cubic dependency on page_values. 
-We won't add any more higher order terms for page_values to the model for two reasons. First, we should not overinterpret the residuals plots for the logistic regression (since FWL not hold?) and secondly, adding too many terms of higher order could lead to overfit.
+Again, the Anova table, AUC and BIC suggest us to keep the cubic dependency on "page_values". 
+We won't add any more higher order terms for "page_values" to the model for two reasons. First, we should not over interpret the residuals plots for the logistic regression (since the FWL theorem does not hold) and secondly, adding too many terms of higher order could lead to an overfit of the data.
 
-We now have a relatively simple model with a good performance, if we compare to the full model we had at the start. Our last step will be to look for potential interactions in the next section.
+We now have a relatively simple model with a good performance when we compare to the full model we had at the start. Our last step will be to look for potential interactions in the next section.
  
 ## Testing for Interactions
  
- In our current model, we include the predictors "product_related_duration", "bounce_rates", "exit_rates", "month", "traffic_type" and "visitor_type", "page_vales" (with a quadratic and cubic dependency on "page_values"). We test for an interaction between "page_values" and "bounce_rates", because if e.g. the value of a page is high a user with a low bounce rate could lead to a purchase with high probability. Since also quadratic and cubic terms of "page_values" are included in the model, we interact also "bounce_rates" with all higher order terms of "page_values". We compare our current model with the model including the described interactions as usual by an Anova model-submodel test, AUC and BIC.
+ In our current model, we include the predictors "product_related_duration", "bounce_rates", "exit_rates", "month", "traffic_type" and "visitor_type", "page_vales" (with a quadratic and cubic dependency on "page_values"). Adding an interaction with one of the categorical variables would lead to a much more complex model since all the categorical variables have around 10 levels. So we look for an interaction between two numerical variables. We test for an interaction between "page_values" and "bounce_rates", because if e.g. the value of a page is high a user with a low bounce rate could lead to a purchase with high probability. Since also quadratic and cubic terms of "page_values" are included in the model, we also interact "bounce_rates" with all higher order terms of "page_values". Then we compare our current model with the model including the described interactions as usual by an Anova model-submodel test, AUC and BIC.
  
 ```{r interaction}
+# fit a model with the described interactions
 gm_inter = glm(purchase ~ product_related_duration + 
                bounce_rates + 
                exit_rates + 
@@ -292,23 +292,29 @@ gm_inter = glm(purchase ~ product_related_duration +
                visitor_type + 
                (page_values + I(page_values^2) + I(page_values^3)):bounce_rates,
              data=data, family="binomial") 
+# perform anova model submodel test to test the interactions
 anovainter = anova(gm_sig_cube, gm_inter, test = "LR")
 anovainter_table <- as.data.frame(anovainter)
+# calculate AUC and BIC of the model with interactions and add it to the table
 BIC_inter = BIC(gm_inter)
 AUC_inter = AUC_eval(gm_inter, Data = data)
 anovainter_table = anovainter_table %>% 
   mutate(AUC = c(AUC_cube, AUC_inter), BIC = c(BIC_cube, BIC_inter))
 # Add row names to the data frame
-row.names(anovainter_table) <- c("model without interaction",
+row.names(anovainter_table) <- c("Model without interaction",
                                   "Model with interaction")
 # Create table and round table to 3 digits
-kable(anovainter_table, caption = "", digits = 3)
+kable(anovainter_table, 
+      caption = "Anova Model-Submodel test as well as AUC and BIC to test if we 
+      should include a interaction terms between bounce_rate and page_values 
+      (and its higher order terms) in our model.", 
+      digits = 3)
 ```
- All three criterions suggest to keep the model with the interactions. We take this as our final model as we have reached a good AUC and adding much more terms would make the model even more complex as it is already.
+ All three criterions suggest to keep the model with the interactions. We take this as our final model as we have reached a good AUC and adding more terms would make the model even more complex as it is already.
  
 ## Final model
  
-As described in the section before, for our final model we use "product_related_duration", "bounce_rates", "exit_rates", "month", "traffic_type" and "visitor_type", "page_vales" (with quadratic cubic dependency) as well as an interaction between "bounce_rates" and "page_values" (with its quadratic and cubic dependencies). The coeficients are the following.
+As described in the section before, in our final model we use "product_related_duration", "bounce_rates", "exit_rates", "month", "traffic_type" and "visitor_type", "page_vales" (with quadratic cubic dependency) as well as an interaction between "bounce_rates" and "page_values" (with its quadratic and cubic dependencies) as predictors. The coefficients are the following.
 ```{r finalcoef}
 coef_table = as.data.frame(gm_inter$coefficients)
 # change coeficient names to a nicer format
@@ -320,15 +326,15 @@ rownames(coef_table)[rownames(coef_table) == "bounce_rates:I(page_values^2)"] =
   "bounce_rates:page_values$^2$"
 rownames(coef_table)[rownames(coef_table) == "bounce_rates:I(page_values^3)"] =
   "bounce_rates:page_values$^3$"
-library("tibble") # to change rownames to coloumn
 coef_table = rownames_to_column(coef_table)
 colnames(coef_table) = c("Coefficient name", "Coeficient value")
 kable(coef_table, digits = 3, 
       caption = "Coeficients for the final logistic regression model")
 ```
-So for example if we look at the month November, the odds ratio between an observation from August (base level of the month variable) and an observation from November, while all other predictors being equal, is given by $e^{0.670} \approx 1.954$ according to our model.
+So for example if we look at the month November, the odds ratio between an observation November and an observation from August (base level of the month variable), while all other predictors being equal, is given by $e^{0.670} \approx 1.954$ according to our model. Interestingly for the month December, the odds ratio between an observation from December and August, all other predictors being equal, is $e^{-0.615} \approx 0.541$. Hence our model suggests that it is more likely for a user in August than a user in December to carry out a purchase. A possible reason for this is that in December, where a lot of users look for Christmas gifts, people will visit a lot of different webpages to look for a good gift but only on one Webpage a purchase will be done. So for a specific webpage, the odds of a user completing a purchase on that website could be lower than usual.
  
- The AUC of our final model is 0.918.
+The AUC of our final model is 0.918.
  
 # Conclusion
 
+It is a hard task to build a statistical model when a dataset with a lot of variables is available, since there is a huge number of different combinations, transformations and interactions between variables. In this report, we carried out a possible procedure to build such a model with statistical reasoning, however a different dataset can require a totally different procedure. Also it would have been very helpful to have some deeper knowledge about the domain, since this would give some intuition on what variables are important or what transformations/interactions could have been useful.
