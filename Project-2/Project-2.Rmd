@@ -1,7 +1,7 @@
 ---
-title: "Project-1"
+title: "Project-2"
 author: "Hannes Gubler"
-date: "14.03.2023"
+date: "18.03.2023"
 output: bookdown::html_document2
 ---
 
@@ -12,11 +12,11 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 # Introduction
 
 In this report, we work with online shopping data where one observation corresponds to sessions, i.e instances of a user visiting an e-commerce website. These sessions take some time and may or may not lead to a purchase. We will fit a logistic regression model for the binary response variable "purchase", where we have 17 predictors available. 
-The outline of the remainder of this project is as follows: We start by graphically exploring and wrangling the data. After that we use the prepared data to build a logistic regression. Finally we evaluate the performance of our final model using the Area Under Curve (AUC) criterion.
+The outline of the remainder of this project is as follows: We start by graphically exploring and wrangling the data. After that we use the prepared data to build a logistic regression model. Finally we evaluate the performance of our final model using the Area Under Curve (AUC) criterion.
 
 # Data Exploration and Wrangling
  
- As mentioned, we have 17 predictors available to build a model for the binary response "purchase". These predictor give information about the user's session. As a first step we change the names of the variables to have a consistent naming style. After these name changes, we have the following predictors.
+ As mentioned, we have 17 predictors available to build a model for the binary response "purchase". These predictors give information about the user's session. As a first step we change the names of the variables to have a consistent naming style. After these name changes, we have the following predictors.
  
 * `administrative` Number of administrative-type pages that the user visited.
 * `administrative_duration` Time spent on administrative pages.
@@ -96,9 +96,9 @@ ggplot(data_long, aes(x = value)) +
   ggtitle("Histograms of our Data")
 ```
 
-We see that some variables we treat as factors have some levels with very few observations (e.g the factors "operating systems" or "browser"). Levels with a small number of observations can be problematic because the model fits a single parameter for these levels which will have high variance due to the small number of datapoints. Following this reasoning we merge small levels (less than 30 observations) within one factor variable into a group called "others". 
+We see that some variables that we treat as factors have some levels with very few observations (e.g the factors "operating systems" or "browser"). Levels with a small number of observations can be problematic because the model fits a single parameter for these levels which will have high variance due to the small number of datapoints. Following this reasoning we merge small levels (less than 40 observations) within one factor variable into a new level called "others". 
 
-For the numerical variables, we can see that a lot of them have a right scewed histogram, so we could log transform them to have more evenly spread out values. However they all have a lot of zero values so it we rather take the square root of those variables, as it has a similar effect as the logarithm. Namely we transform the numerical variables "administrative" "administrative_duration", "bounce_rates", "exit_rates", "Informational", "Informational_duration", "page_values", "product_related" and "product_related_duration" by applying the square root.
+For the numerical variables, we can see that a lot of them have a right scewed histogram, so we could log transform them to have more evenly spread out values. However they all have a lot of zero values so we rather take the square root of those variables, as it has a similar effect as the logarithm. Namely we transform the numerical variables "administrative" "administrative_duration", "bounce_rates", "exit_rates", "Informational", "Informational_duration", "page_values", "product_related" and "product_related_duration" by applying the square root.
 
 ```{r factormerge&transformations}
 # loop over the factor variables and merge categories with small number of 
@@ -147,7 +147,7 @@ kable(anova2,
       label = "type2anova")
 ```
 
-The type II Anova table suggests us that the predictors "product_related_duration", "bounce_rates", "exit_rates", "page_vales", "month", "traffic_type" and "visitor_type" are significant at level 0.05. So we fit with a submodel containing only these predictors. But we still need to analyze this submodel because we could run into multiple testing issues. So we compare the full model with the sub-model by an Anova model-submodel test, the BIC and the AUC.
+The type II Anova table suggests us that the predictors "product_related_duration", "bounce_rates", "exit_rates", "page_vales", "month", "traffic_type" and "visitor_type" are significant at level 0.05. So we fit with a submodel containing only these predictors. But we still need to analyze this submodel because we could run into multiple testing issues. So we compare the full model with the sub-model by an Anova model-submodel test, the AUC and BIC
 ```{r Anovamodsub}
 # fit a model containing only significant variables from above
 gm_sig = glm(purchase ~ product_related_duration + 
@@ -196,7 +196,7 @@ data_num %>%
   xlab("Predictor Value") +
   ggtitle("Residuals vs Predictor")
 ```
- First note that the residuals are often organized in two clouds since the response variable is binary, so it is useful to use a smoother to detect patterns. Also, it looks like we could have a quadratic dependence on page_values. So we fit a model containing all predictors from the current model together with a quadratic dependence on page_values. We then compare the two models with and without quadratic dependence on page_values with an Anova model-submodel test, AUC and BIC
+ First note that the residuals are often organized in two clouds since the response variable is binary, so it is useful to use a smoother to detect patterns. Also, it looks like we could have a quadratic dependency on "page_values". So we fit a model containing all predictors from the current model together with a quadratic dependence on "page_values". We then compare the two models with and without quadratic dependence on "page_values" with an Anova model-submodel test, AUC and BIC
 ```{r anovaquad}
 # fit a model with the significant predictors from before together with quadratic
 # dependence on page_values
@@ -226,7 +226,7 @@ kable(anovaquad_table,
       digits = 3)
 ```
 
-The Anova test suggests us to keep the quadratic dependency on page_values, so we proceed with this model. We check if the residuals plot for the predictor page_value now looks better.
+The Anova test together with AIC and BIC suggest us to keep the quadratic dependency on page_values, so we proceed with this model. We check if the residuals plot for the predictor "page_value" now looks better.
 
 ```{r pagevalueresidquad, fig.align='center', out.width="50%", fig.cap="Residuals vs the predictor page_values after including a quadratic dependency on page_values into the model."}
 dataplot = data.frame(x = data$page_values, y = gm_sig_quad$residuals)
@@ -238,7 +238,7 @@ ggplot(aes(x = data$page_values, y = gm_sig_quad$residuals), data = dataplot) +
   ggtitle("Residuals vs Predictor")
 ```
 
- The residuals plot already looks a bit better but we can still observe some slight non-linearity. So we add a cubic term of page_values to the model. As before, we use the model-submodel Anova test together with the AUC and BIC to compare the model with cubic dependency on page_values and without cubic dependency on page_values (but still including quadratic dependency on page_values).
+ The residuals plot already looks a bit better but we can still observe some slight non-linearity. So we add a cubic term of "page_values" to the model. As before, we use the model-submodel Anova test together with the AUC and BIC to compare the model with cubic dependency on "page_values" to the model from before without cubic dependency on page_values (but still including quadratic dependency on "page_values").
 ```{r anovacube}
 # fit a model with the significant predictors from before together with quadratic
 # dependence on page_values
@@ -314,7 +314,7 @@ kable(anovainter_table,
  
 ## Final model
  
-As described in the section before, in our final model we use "product_related_duration", "bounce_rates", "exit_rates", "month", "traffic_type" and "visitor_type", "page_vales" (with quadratic cubic dependency) as well as an interaction between "bounce_rates" and "page_values" (with its quadratic and cubic dependencies) as predictors. The coefficients are the following.
+As described in the section before, in our final model we use "product_related_duration", "bounce_rates", "exit_rates", "month", "traffic_type" and "visitor_type", "page_vales" (with quadratic cubic dependency) as well as an interaction between "bounce_rates" and "page_values" (and its quadratic and cubic dependencies) as predictors. The final coefficients are the following.
 ```{r finalcoef}
 coef_table = as.data.frame(gm_inter$coefficients)
 # change coeficient names to a nicer format
@@ -326,15 +326,16 @@ rownames(coef_table)[rownames(coef_table) == "bounce_rates:I(page_values^2)"] =
   "bounce_rates:page_values$^2$"
 rownames(coef_table)[rownames(coef_table) == "bounce_rates:I(page_values^3)"] =
   "bounce_rates:page_values$^3$"
+# change rownames to a coloumn in the dataframe so we can give it a header
 coef_table = rownames_to_column(coef_table)
 colnames(coef_table) = c("Coefficient name", "Coeficient value")
 kable(coef_table, digits = 3, 
-      caption = "Coeficients for the final logistic regression model")
+      caption = "Coeficients for the final logistic regression model.")
 ```
-So for example if we look at the month November, the odds ratio between an observation November and an observation from August (base level of the month variable), while all other predictors being equal, is given by $e^{0.670} \approx 1.954$ according to our model. Interestingly for the month December, the odds ratio between an observation from December and August, all other predictors being equal, is $e^{-0.615} \approx 0.541$. Hence our model suggests that it is more likely for a user in August than a user in December to carry out a purchase. A possible reason for this is that in December, where a lot of users look for Christmas gifts, people will visit a lot of different webpages to look for a good gift but only on one Webpage a purchase will be done. So for a specific webpage, the odds of a user completing a purchase on that website could be lower than usual.
+So for example if we look at the month November, the odds ratio between an observation November and an observation from August (base level of the month variable), while all other predictors being equal, is given by $e^{0.670} \approx 1.954$ according to our model. Interestingly for the month December, the odds ratio between an observation from December and August, all other predictors being equal, is $e^{-0.615} \approx 0.541$. Hence our model suggests that it is more likely for a user in August than a user in December to carry out a purchase. A possible reason for this is that in December, where a lot of users look for Christmas gifts, people will visit a lot of different webpages to search for a good gift but only on one Webpage a purchase will be done. So for a specific webpage, the odds of a user completing a purchase on that website could be lower than usual.
  
 The AUC of our final model is 0.918.
  
 # Conclusion
 
-It is a hard task to build a statistical model when a dataset with a lot of variables is available, since there is a huge number of different combinations, transformations and interactions between variables. In this report, we carried out a possible procedure to build such a model with statistical reasoning, however a different dataset can require a totally different procedure. Also it would have been very helpful to have some deeper knowledge about the domain, since this would give some intuition on what variables are important or what transformations/interactions could have been useful.
+It is a hard task to build a statistical model when a dataset with a lot of variables is available, since there is a huge number of different combinations, transformations and interactions between variables. In this report, we carried out a possible procedure to build such a model with statistical reasoning, however a different dataset can require a different procedure. Also it would have been very helpful to have some deeper knowledge about the domain, since this would give some intuition on what variables are important or what transformations/interactions could have been useful.
