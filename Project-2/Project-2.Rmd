@@ -40,13 +40,13 @@ The next step is to decide which variables we include as factors in the model. F
 ```{r datawrangle}
 library(dplyr)
 library(tidyr)
-library(ggplot2)
-library(pROC)
-library(forcats)
+library(ggplot2) 
+library(pROC) # for AUC
+library(forcats) # for fct_collapse function to merge levels of caregorical data
 library(car) # for Anova function
 library(flexmix) # for BIC
 library(knitr) # for tables
-library("tibble") # to change rownames of a dataframe to a coloumn
+library(tibble) # to change rownames of a dataframe to a coloumn
 # function for AUC
 AUC_eval <- function(gmodel,Data){
   set.seed(517)
@@ -67,25 +67,35 @@ rm(Data)
 # first change the name to snake_case
 data = data %>% rename(purchase = Revenue, administrative = Administrative,
                        administrative_duration = Administrative_Duration, 
-                       informational = Informational, informational_duration = Informational_Duration,
-                       product_related = ProductRelated, product_related_duration = ProductRelated_Duration,
+                       informational = Informational, 
+                       informational_duration = Informational_Duration,
+                       product_related = ProductRelated,
+                       product_related_duration = ProductRelated_Duration,
                        bounce_rates = BounceRates, exit_rates = ExitRates,
-                       page_values = PageValues, special_day = SpecialDay, month = Month,
-                       operating_systems = OperatingSystems, browser = Browser, region = Region,
-                       traffic_type = TrafficType, visitor_type = VisitorType, weekend = Weekend) 
-data = data %>% mutate_if(is.character, as.factor) # change character variables to
+                       page_values = PageValues, special_day = SpecialDay, 
+                       month = Month,
+                       operating_systems = OperatingSystems, browser = Browser,
+                       region = Region,
+                       traffic_type = TrafficType, visitor_type = VisitorType,
+                       weekend = Weekend) 
+data = data %>%
+  mutate_if(is.character, as.factor) # change character variables to
 # factors
-data = data %>% mutate_if(is.integer, as.numeric) # change integers variables to
+data = data %>%
+  mutate_if(is.integer, as.numeric) # change integers variables to
 # numeric
-data = data %>% mutate_if(is.logical, as.factor) # change logical variables to factors
-data = data %>% mutate_at(c("visitor_type", "region", "browser", "operating_systems",
-                            "traffic_type"), as.factor) # individually change 
+data = data %>%
+  mutate_if(is.logical, as.factor) # change logical variables to factors
+data = data %>%
+  mutate_at(c("visitor_type", "region", "browser", "operating_systems", 
+              "traffic_type"), as.factor) # individually change 
 # some variables to factors
 ```
 
 Now we can graphically explore our variables - by looking at the histograms.
 ```{r histograms, fig.align='center', fig.width=12, fig.height=8, fig.cap="Histograms of all the variables in our dataset."}
-data_num = data %>% mutate_if(is.factor, as.numeric) # data with all variables 
+data_num = data %>%
+  mutate_if(is.factor, as.numeric) # data with all variables 
 # as numeric
 data_long <- gather(data_num, key = "predictor", value = "value")
 
@@ -139,8 +149,9 @@ anova2 = Anova(gm_all, type = "II", test.statistic = "LR") # perform type 2 Anov
 # on full model
 # create table for anova table and round results to 3 digits for readability
 kable(anova2, 
-      caption = "Type II Anova table for a logistic regression model including all
-      predictors from the data. For each predictor, the full model is compared to the
+      caption = "Type II Anova table for a logistic regression model including
+      all predictors from the data. For each predictor, the full model is 
+      compared to the
       model with all variables except that specific predictor by a likelihood
       ratio test.",
       digits = 3,
@@ -175,17 +186,18 @@ anovamodsub_table = anovamodsub_table %>%
 kable(anovamodsub_table, 
       caption = "Anova Model-Submodel test as well as AUC and BIC to test the
       model containing only the significant variables from table
-      (\\@ref(tab:type2anova)) vs the model containing all the variables.", digits = 3)
+      (\\@ref(tab:type2anova)) vs the model containing all the variables.",
+      digits = 3)
 ```
 All these results support the submodel as it has a higher AUC, lower BIC and the Anova model-submodel test suggests to not reject the null hypothesis (submodel) at a level 0.05.
 
-So we proceed with the submodel from above and analyze its residuals by plotting the residuals vs each predictor and adding a smoother to the plots (except for visitor_type which only takes 3 values).
+So we proceed with the submodel from above and analyze its residuals by plotting the residuals vs each predictor and adding a smoother to the plots (except for "visitor_type" which only takes 3 values).
 
 ```{r residualplot, fig.align='center', fig.cap="Residuals vs predictor plot with a smoother. The residuals come from a logistic regression model using only the variables that were selected by the type II Anova table.", warning=FALSE}
 # create residuals plot for each predictor in one figure 
 data_num %>% 
-  select(c(product_related_duration, bounce_rates, exit_rates, page_values, month,
-           traffic_type, visitor_type)) %>%
+  select(c(product_related_duration, bounce_rates, exit_rates,
+           page_values, month, traffic_type, visitor_type)) %>%
   mutate(res = resid(gm_sig)) %>%
   pivot_longer(-res) %>% 
   ggplot(aes(y = res, x = value)) + 
@@ -196,7 +208,7 @@ data_num %>%
   xlab("Predictor Value") +
   ggtitle("Residuals vs Predictor")
 ```
- First note that the residuals are often organized in two clouds since the response variable is binary, so it is useful to use a smoother to detect patterns. Also, it looks like we could have a quadratic dependency on "page_values". So we fit a model containing all predictors from the current model together with a quadratic dependence on "page_values". We then compare the two models with and without quadratic dependence on "page_values" with an Anova model-submodel test, AUC and BIC
+ First note that the residuals are often organized in two clouds since the response variable is binary, so it is useful to use a smoother to detect patterns. Also, it looks like we could have a quadratic dependency on "page_values". So we fit a model containing all predictors from the current model together with a quadratic dependence on "page_values". We then compare the two models with and without quadratic dependence on "page_values" with an Anova model-submodel test, AUC and BIC.
 ```{r anovaquad}
 # fit a model with the significant predictors from before together with quadratic
 # dependence on page_values
@@ -318,8 +330,10 @@ As described in the section before, in our final model we use "product_related_d
 ```{r finalcoef}
 coef_table = as.data.frame(gm_inter$coefficients)
 # change coeficient names to a nicer format
-rownames(coef_table)[rownames(coef_table) == "I(page_values^2)"] = "page_values$^2$"
-rownames(coef_table)[rownames(coef_table) == "I(page_values^3)"] = "page_values$^3$"
+rownames(coef_table)[rownames(coef_table) == "I(page_values^2)"] =
+  "page_values$^2$"
+rownames(coef_table)[rownames(coef_table) == "I(page_values^3)"] =
+  "page_values$^3$"
 rownames(coef_table)[rownames(coef_table) == "bounce_rates:page_values"] =
   "bounce_rates:page_values"
 rownames(coef_table)[rownames(coef_table) == "bounce_rates:I(page_values^2)"] =
@@ -338,4 +352,4 @@ The AUC of our final model is 0.918.
  
 # Conclusion
 
-It is a hard task to build a statistical model when a dataset with a lot of variables is available, since there is a huge number of different combinations, transformations and interactions between variables. In this report, we carried out a possible procedure to build such a model with statistical reasoning, however a different dataset can require a different procedure. Also it would have been very helpful to have some deeper knowledge about the domain, since this would give some intuition on what variables are important or what transformations/interactions could have been useful.
+It is a hard task to build a statistical model when a dataset with a lot of variables is available, since there is a huge number of possible different combinations, transformations and interactions between variables. In this report, we carried out a procedure to build such a model with statistical reasoning, however a different dataset can require a different procedure. Also it would have been very helpful to have some deeper knowledge about the domain, since this would give some intuition on what variables are important or what transformations/interactions could have been useful.
