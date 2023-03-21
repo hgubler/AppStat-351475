@@ -1,0 +1,55 @@
+---
+title: "rough_work"
+author: "Hannes"
+date: "2023-03-21"
+output: bookdown::html_document2
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Data
+Premier league data from 4 seasons, where 2021-2022 season was in covid without fans.
+Merge data: Have to make all variables to the same name? Only include home team goals, away team goals and who wins and date to have homogenous datasets?
+```{r dataprep}
+library("dplyr")
+data_18_19 = read.csv(file = "Data/season-1819.csv")
+data_19_20 = read.csv(file = "Data/2019-20.csv")
+data_20_21 = read.csv(file = "Data/2020-2021.csv")
+data_21_22 = read.csv(file = "Data/2021-2022.csv")
+
+# add coloumn if fans were in stadium (1) or not (0)
+fans_18_19 = rep(1, nrow(data_18_19))
+fans_19_20 = rep(1, nrow(data_19_20))
+fans_20_21 = rep(0, nrow(data_20_21))
+fans_21_22 = rep(1, nrow(data_21_22))
+data_18_19 = data_18_19 %>% mutate(fans = fans_18_19)
+data_19_20 = data_19_20 %>% mutate(fans = fans_19_20)
+data_20_21 = data_20_21 %>% mutate(fans = fans_20_21)
+data_21_22 = data_21_22 %>% mutate(fans = fans_21_22)
+
+# extract useful variables for us
+data_18_19 = data_18_19 %>%
+  select(Date, FTHG, FTAG, FTR, HTHG, HTAG, HTR, HS, AS, HST, AST, HF, AF, HC,
+         AC, HY, AY, HR, AR, fans)
+data_19_20 = data_19_20 %>%
+  select(Date, FTHG, FTAG, FTR, HTHG, HTAG, HTR, HS, AS, HST, AST, HF, AF, HC,
+         AC, HY, AY, HR, AR, fans)
+data_20_21 = data_20_21 %>%
+  select(Date, FTHG, FTAG, FTR, HTHG, HTAG, HTR, HS, AS, HST, AST, HF, AF, HC,
+         AC, HY, AY, HR, AR, fans)
+data_21_22 = data_21_22 %>%
+  select(Date, FTHG, FTAG, FTR, HTHG, HTAG, HTR, HS, AS, HST, AST, HF, AF, HC,
+         AC, HY, AY, HR, AR, fans)
+data_full = rbind(data_18_19, data_19_20, data_20_21, data_21_22)
+```
+
+
+Try out first model
+```{r }
+tab = table(data_full$FTR, data_full$fans)
+tab
+```
+
+
