@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Data
 Premier league data from 4 seasons, where 2021-2022 season was in covid without fans.
-Merge data: Have to make all variables to the same name? Only include home team goals, away team goals and who wins and date to have homogenous datasets?
+We merge the data from the different seasons together, include a covid factor variable and exclude all the data from the betting.
 ```{r dataprep}
 library("dplyr")
 data_18_19 = read.csv(file = "Data/season-1819.csv")
@@ -19,37 +19,88 @@ data_19_20 = read.csv(file = "Data/2019-20.csv")
 data_20_21 = read.csv(file = "Data/2020-2021.csv")
 data_21_22 = read.csv(file = "Data/2021-2022.csv")
 
-# add coloumn if fans were in stadium (1) or not (0)
+# add coloumn if there was covid (0) or not (1)
 fans_18_19 = rep(1, nrow(data_18_19))
 fans_19_20 = rep(1, nrow(data_19_20))
 fans_20_21 = rep(0, nrow(data_20_21))
 fans_21_22 = rep(1, nrow(data_21_22))
-data_18_19 = data_18_19 %>% mutate(fans = fans_18_19)
-data_19_20 = data_19_20 %>% mutate(fans = fans_19_20)
-data_20_21 = data_20_21 %>% mutate(fans = fans_20_21)
-data_21_22 = data_21_22 %>% mutate(fans = fans_21_22)
+data_18_19 = data_18_19 %>% mutate(covid = fans_18_19)
+data_19_20 = data_19_20 %>% mutate(covid = fans_19_20)
+data_20_21 = data_20_21 %>% mutate(covid = fans_20_21)
+data_21_22 = data_21_22 %>% mutate(covid = fans_21_22)
 
 # extract useful variables for us
 data_18_19 = data_18_19 %>%
-  select(Date, FTHG, FTAG, FTR, HTHG, HTAG, HTR, HS, AS, HST, AST, HF, AF, HC,
-         AC, HY, AY, HR, AR, fans)
+  select(Date, HomeTeam, AwayTeam, FTHG, FTAG, FTR, HTHG, HTAG, HTR, HS, AS, 
+         HST, AST, HF, AF, HC, AC, HY, AY, HR, AR, covid)
 data_19_20 = data_19_20 %>%
-  select(Date, FTHG, FTAG, FTR, HTHG, HTAG, HTR, HS, AS, HST, AST, HF, AF, HC,
-         AC, HY, AY, HR, AR, fans)
+  select(Date, HomeTeam, AwayTeam, FTHG, FTAG, FTR, HTHG, HTAG, HTR, HS, AS,
+         HST, AST, HF, AF, HC, AC, HY, AY, HR, AR, covid)
 data_20_21 = data_20_21 %>%
-  select(Date, FTHG, FTAG, FTR, HTHG, HTAG, HTR, HS, AS, HST, AST, HF, AF, HC,
-         AC, HY, AY, HR, AR, fans)
+  select(Date, HomeTeam, AwayTeam, FTHG, FTAG, FTR, HTHG, HTAG, HTR, HS, AS,
+         HST, AST, HF, AF, HC, AC, HY, AY, HR, AR, covid)
 data_21_22 = data_21_22 %>%
-  select(Date, FTHG, FTAG, FTR, HTHG, HTAG, HTR, HS, AS, HST, AST, HF, AF, HC,
-         AC, HY, AY, HR, AR, fans)
-data_full = rbind(data_18_19, data_19_20, data_20_21, data_21_22)
+  select(Date, HomeTeam, AwayTeam, FTHG, FTAG, FTR, HTHG, HTAG, HTR, HS, AS,
+         HST, AST, HF, AF, HC, AC, HY, AY, HR, AR, covid)
+
+# merge all seasons together to a whole dataset
+data = rbind(data_18_19, data_19_20, data_20_21, data_21_22)
+```
+
+change name of variables to snakecase
+
+```{r renames}
+# rename to snake_case and more understandable names
+data = data %>%
+  rename(date = Date, home_team = HomeTeam, away_team = AwayTeam, 
+         fulltime_home_goals = FTHG, fulltime_away_goals = FTAG, 
+         fulltime_result = FTR, halftime_home_gols = HTHG, 
+         halftime_away_goals = HTAG, halftime_result = HTR, 
+         home_team_shots = HS, away_team_shots = AS,
+         home_team_shots_ontarget = HST, away_team_shots_ontarget = AST,
+         home_team_fouls = HF, away_team_fouls = AF, home_team_corners = HC, 
+         away_team_corners = AC, home_team_yellow = HY, 
+         away_team_yellow = AY, home_team_red = HR, away_team_red = AR)
 ```
 
 
-Try out first model
-```{r }
-tab = table(data_full$FTR, data_full$fans)
+
+Try out first model just to get an overview if there could be effect (but doesnt say why there is an effect). show table and anova table.
+```{r}
+tab = table(data$fulltime_result, data$covid)
 tab
+data_tab = as.data.frame(tab)
+names(data_tab) = c("winner", "covid", "freq")
+gm_1 = glm(freq ~ ., data = data_tab, family=poisson(link="log"))
+library(car)
+Anova(gm_1, type = 2, test = "LR")
+```
+These results suggest that there is a covid effect present. Now we try to answer whether it comes from.
+
+
+So build a table containing the covid factor, home team, away team, and full time goals from home and away.
+
+```{r}
+tab_2 = table(data$covid, data$fulltime_home_goals, data$fulltime_away_goals, 
+             data$home_team, data$away_team)
+data_tab_2 = as.data.frame(tab_2)
+names(data_tab_2) = c("covid", "fulltime_home_goals", "fulltime_away_goals", 
+                      "home_team", "away_team", "freq")
+gm_2 = glm(freq ~ ., data = data_tab_2, family=poisson(link="log"))
+# make anova to test for interactions between covid and homegoals
+gm_2_inter = glm(freq ~ . + covid:fulltime_home_goals, data = data_tab_2,
+           family=poisson(link="log"))
+#gm_2_2 = glm(freq ~ (.)^2, data = data_tab_2, family=poisson(link="log"))
+#gm_2_3 = glm(freq ~ (.)^3, data = data_tab_2, family=poisson(link="log"))
+#gm_2_4 = glm(freq ~ (.)^4, data = data_tab_2, family=poisson(link="log"))
 ```
 
+
+
+
+
+
+
+
+Maybe include the variable covid as a 3 way factor (pre covid, covid, post covid) to also answer if home effect came back.
 
