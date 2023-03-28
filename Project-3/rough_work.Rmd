@@ -6,24 +6,24 @@ output: bookdown::html_document2
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
 ```
 
 # Data
 Premier league data from 4 seasons, where 2021-2022 season was in covid without fans.
 We merge the data from the different seasons together, include a covid factor variable and exclude all the data from the betting.
 ```{r dataprep}
-library("dplyr")
+library("tidyverse")
 data_18_19 = read.csv(file = "Data/season-1819.csv")
 data_19_20 = read.csv(file = "Data/2019-20.csv")
 data_20_21 = read.csv(file = "Data/2020-2021.csv")
 data_21_22 = read.csv(file = "Data/2021-2022.csv")
 
 # add coloumn if there was covid (0) or not (1)
-fans_18_19 = rep(1, nrow(data_18_19))
-fans_19_20 = rep(1, nrow(data_19_20))
-fans_20_21 = rep(0, nrow(data_20_21))
-fans_21_22 = rep(1, nrow(data_21_22))
+fans_18_19 = rep(0, nrow(data_18_19))
+fans_19_20 = rep(0, nrow(data_19_20))
+fans_20_21 = rep(1, nrow(data_20_21))
+fans_21_22 = rep(0, nrow(data_21_22))
 data_18_19 = data_18_19 %>% mutate(covid = fans_18_19)
 data_19_20 = data_19_20 %>% mutate(covid = fans_19_20)
 data_20_21 = data_20_21 %>% mutate(covid = fans_20_21)
@@ -33,6 +33,7 @@ data_21_22 = data_21_22 %>% mutate(covid = fans_21_22)
 data_18_19 = data_18_19 %>%
   select(Date, HomeTeam, AwayTeam, FTHG, FTAG, FTR, HTHG, HTAG, HTR, HS, AS, 
          HST, AST, HF, AF, HC, AC, HY, AY, HR, AR, covid)
+
 data_19_20 = data_19_20 %>%
   select(Date, HomeTeam, AwayTeam, FTHG, FTAG, FTR, HTHG, HTAG, HTR, HS, AS,
          HST, AST, HF, AF, HC, AC, HY, AY, HR, AR, covid)
@@ -45,14 +46,21 @@ data_21_22 = data_21_22 %>%
 
 # merge all seasons together to a whole dataset
 data = rbind(data_18_19, data_19_20, data_20_21, data_21_22)
+# change character variables to factor except Date
+Date = data$Date
+data = data %>% 
+  select(-Date) %>%
+  mutate_if(is.character, as.factor) %>%
+  mutate(covid = as.factor(covid))
+#data = cbind(date, data)
 ```
 
-change name of variables to snakecase
+change name of variables to snake_case
 
 ```{r renames}
 # rename to snake_case and more understandable names
 data = data %>%
-  rename(date = Date, home_team = HomeTeam, away_team = AwayTeam, 
+  rename(home_team = HomeTeam, away_team = AwayTeam, 
          fulltime_home_goals = FTHG, fulltime_away_goals = FTAG, 
          fulltime_result = FTR, halftime_home_gols = HTHG, 
          halftime_away_goals = HTAG, halftime_result = HTR, 
@@ -61,11 +69,12 @@ data = data %>%
          home_team_fouls = HF, away_team_fouls = AF, home_team_corners = HC, 
          away_team_corners = AC, home_team_yellow = HY, 
          away_team_yellow = AY, home_team_red = HR, away_team_red = AR)
+
 ```
 
 
 
-Try out first model just to get an overview if there could be effect (but doesnt say why there is an effect). show table and anova table.
+Try out first model just to get an overview if there could be effect (but doesn't say why there is an effect). show table and anova table.
 ```{r}
 tab = table(data$fulltime_result, data$covid)
 tab
@@ -75,28 +84,84 @@ gm_1 = glm(freq ~ ., data = data_tab, family=poisson(link="log"))
 library(car)
 Anova(gm_1, type = 2, test = "LR")
 ```
-These results suggest that there is a covid effect present. Now we try to answer whether it comes from.
+These results suggest that there is a covid effect present. Now we try to answer whether it comes from. (is it statistically significant?)
 
+# poisson reg
 
-So build a table containing the covid factor, home team, away team, and full time goals from home and away.
+So we build a model with the goals scored as a response. So we need to change the form of our dataset because for now in each observation (1 game) we have the information about homegoals and awaygoals. So we create a dataframe such that each match is coded up twice, once from the hometeam perspective indicating how many times the home team scored in that match and once from the awayteam perspective indicating how many times the away team scored in that match. So we include a binary variable called "home" indicating if the goals scored are from the hometeam (1) or from the awayteam (0). So next to the factors "hometeam", "awayteam" and "home" we also include a "covid" factor as predictors for the goals scored.
 
 ```{r}
-tab_2 = table(data$covid, data$fulltime_home_goals, data$fulltime_away_goals, 
-             data$home_team, data$away_team)
-data_tab_2 = as.data.frame(tab_2)
-names(data_tab_2) = c("covid", "fulltime_home_goals", "fulltime_away_goals", 
-                      "home_team", "away_team", "freq")
-gm_2 = glm(freq ~ ., data = data_tab_2, family=poisson(link="log"))
-# make anova to test for interactions between covid and homegoals
-gm_2_inter = glm(freq ~ . + covid:fulltime_home_goals, data = data_tab_2,
-           family=poisson(link="log"))
-#gm_2_2 = glm(freq ~ (.)^2, data = data_tab_2, family=poisson(link="log"))
-#gm_2_3 = glm(freq ~ (.)^3, data = data_tab_2, family=poisson(link="log"))
-#gm_2_4 = glm(freq ~ (.)^4, data = data_tab_2, family=poisson(link="log"))
+data_pois = data %>% select(home_team, away_team, fulltime_home_goals, 
+                            fulltime_away_goals, covid)
+data_pois = pivot_longer(cols = c("fulltime_home_goals", "fulltime_away_goals"), 
+                         names_to = "home",
+                         values_to = "fulltime_goals", 
+                         data = data_pois)
+library(forcats)
+data_pois = data_pois %>%
+  mutate(home = factor(home)) %>%
+  mutate(home = fct_recode(home, "0" = "fulltime_away_goals", 
+                           "1" = "fulltime_home_goals")) 
+gm_2 = glm(fulltime_goals ~ . -1, data = data_pois, family = "poisson")
+gm_2_inter = glm(fulltime_goals ~ . + home:covid -1, data = data_pois, family = "poisson")
+anova(gm_2, gm_2_inter, test = "LR")
 ```
 
 
+We see that the model with the interaction is significant at level 0.05. So we keep this model and can look at the parameters associated to the binary predictor covid and the association between covid and home. 
 
+```{r}
+library(knitr)
+coef_table <- data.frame(
+  "Coefficient Name" = c("covid", "home:covid"),
+  "Coefficient Value" = c(unname(coef(gm_2_inter)["covid1"]), 
+                          unname(coef(gm_2_inter)["covid1:home1"])))
+colnames(coef_table) = c("Coefficient Name", "Coefficient Value")
+kable(coef_table)
+```
+We can interpret these coefficients as follows: The expected number of home goals in a match change by a multiplicative factor of $e^{0.0526329-0.1688694} = 0.8902647$ during coivid (i.e. when there are no fans in the stadium). Conversely, the expected number of away goals in a match change by a multiplicative factor of $e^{0.0526329} = 1.054043$ during covid. So our model suggests us that there clearly is a home effect, i.e. the hometeam scores less goals without fans allowed and the awayteam scores slightly more goals without fans in the stadium of the home team. We can also look at 95% confidence intervals of these coeficients.
+
+```{r CI}
+ci = confint(gm_2_inter, c("covid1", "covid1:home1"), level = 0.95)
+rownames(ci) = c("covid", "covid:home")
+kable(ci)
+```
+So the interpretable confidence intervals for these confidence intervals are obtained by exponentiating the entries.
+```{r interpconfint}
+interp_ci = exp(ci)
+kable(interp_ci)
+```
+This suggests us that the expected number of awaygoals in a match change by a multiplicative factor between 0.94 and 1.174 for 95%. Furthermore the expected number of homegoals change by a multiplicative factor of 
+
+
+So we perform residual analyses for our model.
+
+```{r resplot}
+data_pois %>% 
+  mutate_if(is.factor, as.numeric) %>%
+  mutate(res = resid(gm_2_inter)) %>%
+  select(-fulltime_goals) %>%
+  pivot_longer(-res) %>%
+  ggplot(aes(y = res, x = value)) +
+  facet_wrap(~ name, scales = "free") +
+  geom_point() +
+  geom_smooth()
+```
+
+Check assumption for equal variance and mean of the response. Ideally we would check for each subgroup of the data (e.g. number of homegoals from ManU vs ManCity during covid) if we have equal variance and mean, but these would be way too many subgroups with too few observations. But we can at least check all the homegoals and all the awaygoals have equal variance and mean.
+
+```{r subsetdata}
+data_homegoals = subset(data_pois, home == 1)
+data_awaygoals = subset(data_pois, home == 0)
+mean_var_table <- data.frame(
+  "Homegoals" = c(mean(data_homegoals$fulltime_goals), 
+                  var(data_homegoals$fulltime_goals)),
+  "Awaygoals" = c(mean(data_awaygoals$fulltime_goals),
+                  var(data_awaygoals$fulltime_goals)))
+rownames(mean_var_table) = c("Mean", "Variance")
+kable(mean_var_table)
+```
+Dont have equal variance and mean - still ok?
 
 
 
