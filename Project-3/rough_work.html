@@ -360,11 +360,11 @@ We merge the data from the different seasons together, include a covid factor va
 ## ℹ Use the ]8;;http://conflicted.r-lib.org/conflicted package]8;; to force all conflicts to become errors</code></pre>
 <p>change name of variables to snake_case</p>
 <p>Try out first model just to get an overview if there could be effect (but doesn’t say why there is an effect). show table and anova table.</p>
-<pre><code>##    
-##       0   1
-##   A 340 153
-##   D 225  83
-##   H 455 144</code></pre>
+<pre><code>##                
+## fulltime_result   0   1   2
+##               A 211 153 153
+##               D 137  83  83
+##               H 292 144 144</code></pre>
 <pre><code>## Loading required package: carData</code></pre>
 <pre><code>## 
 ## Attaching package: &#39;car&#39;</code></pre>
@@ -378,15 +378,33 @@ We merge the data from the different seasons together, include a covid factor va
 ## 
 ## Response: freq
 ##        LR Chisq Df Pr(&gt;Chisq)    
-## winner   97.244  2  &lt; 2.2e-16 ***
-## covid   303.723  1  &lt; 2.2e-16 ***
+## winner   96.388  2  &lt; 2.2e-16 ***
+## covid    92.017  2  &lt; 2.2e-16 ***
 ## ---
 ## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
-<p>These results suggest that there is a covid effect present. Now we try to answer whether it comes from.</p>
+<p>These results suggest that there is a covid effect present. Now we try to answer whether it comes from. (is it statistically significant?)</p>
 </div>
 <div id="poisson-reg" class="section level1" number="2">
 <h1><span class="header-section-number">2</span> poisson reg</h1>
-<p>So we build a model with the goals scored as a response. So we need to change the form of our dataset because for now in each observation (1 game) we have the information about homegoals and awaygoals. So we create a dataframe such that each match is coded up twice, once from the hometeam perspective indicating how many times the home team scored in that match and once from the awayteam perspective indicating how many times the away team scored in that match. So we include a binary variable called “home” indicating if the goals scored are from the hometeam (1) or from the awayteam (0). So next to the factors “hometeam”, “awayteam” and “home” we also include a “covid” factor as predictors for the goals scored.</p>
+<p>We want to fit a model for the fulltime goals as a response using poisson regression. So we need to change the form of our dataset because for now in each observation (1 game) we have the information about homegoals and awaygoals. So we create a dataframe such that each match is coded up twice, once from the hometeam perspective indicating how many times the home team scored in that match and once from the awayteam perspective indicating how many times the away team scored in that match. So we include a binary variable called “home” indicating if the goals scored are from the hometeam (1) or from the awayteam (0). So next to the factors “hometeam”, “awayteam” and “home” we also include a “covid” factor as predictors for the goals scored.</p>
+<div id="quantify-home-effect-before-covid" class="section level2" number="2.1">
+<h2><span class="header-section-number">2.1</span> Quantify home effect before covid</h2>
+<p>First create model only for season before covid to quantify home effect. So we model the response fulltime goals with the predictors hometeam, awayteam and a binary predictor home that tells if the corresponding goals correspond to the hometeam (1) or to the awayteam (0).</p>
+<pre><code>##     home1 
+## 0.1940104</code></pre>
+<p>We can then look at the coefficient of the binary predictor “home” to quantify the home effect before covid. The value of the coefficient “home” is 0.1940104, which we can interpret as follows: The expected number of goals scored increases by a multiplicative factor of <span class="math inline">\(e^{0.1940104} = 1.214109\)</span> if a premier league team plays at home instead of away. This clearly suggests that there was a home effect present before covid in the english premier league.</p>
+<p>Now we can test whether this home effect reduced during covid, so we also include the covid season into our model together with a binary variable covid. We then compare it to a model with the same preductors but also an interaction term between home and covid and run an anova model submodel test.</p>
+<pre><code>## Analysis of Deviance Table
+## 
+## Model 1: fulltime_goals ~ home_team + away_team + covid + home
+## Model 2: fulltime_goals ~ home_team + away_team + covid + home + covid:home
+##   Resid. Df Resid. Dev Df Deviance Pr(&gt;Chi)  
+## 1      1989     2529.1                       
+## 2      1988     2523.4  1   5.6267  0.01769 *
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
+<p>The anova test suggests us to keep the interaction between home and covid. So we can look at the values of the coefficients covid and home:covid to see how the home effect changed during covid.</p>
+<p>So we build a model with the goals scored as a response.</p>
 <pre><code>## Analysis of Deviance Table
 ## 
 ## Model 1: fulltime_goals ~ (home_team + away_team + covid + home) - 1
@@ -401,19 +419,16 @@ We merge the data from the different seasons together, include a covid factor va
 <table>
 <thead>
 <tr class="header">
-<th align="left"></th>
 <th align="left">Coefficient Name</th>
 <th align="right">Coefficient Value</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td align="left">covid1</td>
 <td align="left">covid</td>
 <td align="right">0.0526329</td>
 </tr>
 <tr class="even">
-<td align="left">covid1:home1</td>
 <td align="left">home:covid</td>
 <td align="right">-0.1688694</td>
 </tr>
@@ -421,9 +436,50 @@ We merge the data from the different seasons together, include a covid factor va
 </table>
 <p>We can interpret these coefficients as follows: The expected number of home goals in a match change by a multiplicative factor of <span class="math inline">\(e^{0.0526329-0.1688694} = 0.8902647\)</span> during coivid (i.e. when there are no fans in the stadium). Conversely, the expected number of away goals in a match change by a multiplicative factor of <span class="math inline">\(e^{0.0526329} = 1.054043\)</span> during covid. So our model suggests us that there clearly is a home effect, i.e. the hometeam scores less goals without fans allowed and the awayteam scores slightly more goals without fans in the stadium of the home team. We can also look at 95% confidence intervals of these coeficients.</p>
 <pre><code>## Waiting for profiling to be done...</code></pre>
-<pre><code>##                   2.5 %      97.5 %
-## covid1       -0.0567641  0.16059625
-## covid1:home1 -0.3118095 -0.02595713</code></pre>
+<table>
+<thead>
+<tr class="header">
+<th align="left"></th>
+<th align="right">2.5 %</th>
+<th align="right">97.5 %</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">covid</td>
+<td align="right">-0.0567641</td>
+<td align="right">0.1605962</td>
+</tr>
+<tr class="even">
+<td align="left">covid:home</td>
+<td align="right">-0.3118095</td>
+<td align="right">-0.0259571</td>
+</tr>
+</tbody>
+</table>
+<p>So the interpretable confidence intervals for these confidence intervals are obtained by exponentiating the entries.</p>
+<table>
+<thead>
+<tr class="header">
+<th align="left"></th>
+<th align="right">2.5 %</th>
+<th align="right">97.5 %</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">covid</td>
+<td align="right">0.9448169</td>
+<td align="right">1.1742108</td>
+</tr>
+<tr class="even">
+<td align="left">covid:home</td>
+<td align="right">0.7321210</td>
+<td align="right">0.9743769</td>
+</tr>
+</tbody>
+</table>
+<p>This suggests us that the expected number of awaygoals in a match change by a multiplicative factor between 0.94 and 1.174 for 95%. Furthermore the expected number of homegoals change by a multiplicative factor of</p>
 <p>So we perform residual analyses for our model.</p>
 <pre><code>## `geom_smooth()` using method = &#39;gam&#39; and formula = &#39;y ~ s(x, bs = &quot;cs&quot;)&#39;</code></pre>
 <pre><code>## Warning: Computation failed in `stat_smooth()`
@@ -455,6 +511,7 @@ We merge the data from the different seasons together, include a covid factor va
 </table>
 <p>Dont have equal variance and mean - still ok?</p>
 <p>Maybe include the variable covid as a 3 way factor (pre covid, covid, post covid) to also answer if home effect came back.</p>
+</div>
 </div>
 
 
