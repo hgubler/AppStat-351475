@@ -345,6 +345,66 @@ display: none;
 
 <div id="introduction" class="section level1" number="1">
 <h1><span class="header-section-number">1</span> Introduction</h1>
+<p>In this report we will analyze data containing all the football games with results from the English premier league (EPL) seasons 18/19, 19/20, 20/21 and 21/22. In the 20/21 season no fans were allowed to the stadiums because of the Covid-19 pandemic. Accordingly in the following sections we will use the circumstance of no fans being allowed to the EPL stadiums to determine whether the home effect reduced during Covid and analyze the development after Covid. For our analysis we quantify the home effect as the expected number of goals from the home team and will try to answer the above questions by modelling the data using poisson regression.</p>
+</div>
+<div id="data-exploration" class="section level1" number="2">
+<h1><span class="header-section-number">2</span> Data exploration</h1>
+<p>After removing the variables not related to our question of the home effect from our data, we have the following variables available.</p>
+<ul>
+<li><code>date</code> Date when the match was played.</li>
+<li><code>home_team</code> Name of the home team in the match.</li>
+<li><code>away_team</code> Name of the away team in the match.</li>
+<li><code>fulltime_home_goals</code> Number of goals of the home team.</li>
+<li><code>fulltime_away_goals</code> Number of goals of the away team.</li>
+</ul>
+<p>First, we convert the variable <code>date</code> to the factor variable <code>covid</code> with levels 0 (pre-covid, 18/19 and 19/20 seasons), 1 (covid, 20/21 season) and 2 (post-covid, 21/22 season). Using the information from these variables, we create a table with the full time result (home win, draw or away win) and the time frame (pre covid, covid and post covid) to visually deduce if there could be an effect or not.</p>
+<table>
+<caption><span id="tab:exploretable">Table 2.1: </span>Contingency table showing the distribution of home win,
+draw, and away win outcomes before, during, and after the COVID-19 pandemic.</caption>
+<thead>
+<tr class="header">
+<th align="left"></th>
+<th align="right">pre-covid</th>
+<th align="right">covid</th>
+<th align="right">post-covid</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">away win</td>
+<td align="right">211</td>
+<td align="right">153</td>
+<td align="right">153</td>
+</tr>
+<tr class="even">
+<td align="left">draw</td>
+<td align="right">137</td>
+<td align="right">83</td>
+<td align="right">83</td>
+</tr>
+<tr class="odd">
+<td align="left">home win</td>
+<td align="right">292</td>
+<td align="right">144</td>
+<td align="right">144</td>
+</tr>
+</tbody>
+</table>
+<p>Note that for our analysis we do not only consider the home effect using the match result but by the exact number of home goals scored. Still, table (<a href="#tab:exploretable">2.1</a>) indicates that there might be a change in the home effect during covid and it makes sense to pursue further analysis.</p>
+</div>
+<div id="poisson-regression-to-analyze-the-home-effect" class="section level1" number="3">
+<h1><span class="header-section-number">3</span> Poisson regression to analyze the home effect</h1>
+<div id="quantify-the-home-effect-before-covid" class="section level2" number="3.1">
+<h2><span class="header-section-number">3.1</span> Quantify the home effect before covid</h2>
+</div>
+<div id="development-of-home-effect-during-covid" class="section level2" number="3.2">
+<h2><span class="header-section-number">3.2</span> Development of home effect during covid</h2>
+<p>Try to answer the following questions</p>
+<ul>
+<li>Did the home effect reduce during Covid?</li>
+<li>What is the development of the home effect after Covid?</li>
+</ul>
+</div>
 </div>
 
 
