@@ -96,7 +96,7 @@ data = data %>%
 First create model only for season before covid to quantify home effect. So we model the response fulltime goals with the predictors hometeam, awayteam and a binary predictor home that tells if the corresponding goals correspond to the hometeam (1) or to the awayteam (0).
 ```{r model_18_19_20}
 # create dataframe containing all seasons before covid 
-data_pre_covid = subset(data, covid ==0)
+data_pre_covid = subset(data, covid == 0)
 # remove covid coloumn
 data_pre_covid = data_pre_covid %>% 
   select(-covid)
@@ -166,7 +166,7 @@ kable(interp_ci)
 This suggests us that the expected number of awaygoals in a match change by a multiplicative factor between 0.94 and 1.174 for 95%. Furthermore the expected number of homegoals change by a multiplicative factor of 
 
 
-So we perform residual analyses for our model.
+So we perform residual analyses for our model. Dont include this plot in report.
 
 ```{r resplot}
 data_full %>% 
@@ -200,4 +200,19 @@ Dont have equal variance and mean - still ok?
 
 
 Maybe include the variable covid as a 3 way factor (pre covid, covid, post covid) to also answer if home effect came back.
+
+
+```{r fullmodel}
+gm_full = glm(fulltime_goals ~ ., data = data, family = "poisson")
+gm_full_inter = glm(fulltime_goals ~ . + home:covid, data = data, family = "poisson")
+res_ind = rep(c(0,1), nrow(data) / 2)
+res = gm_full_inter$residuals
+data_res = data
+data_res = data_res %>% 
+  mutate(res_ind = res_ind, res = res)
+data_res_home = data_res[data_res$res_ind == 0, ]
+data_res_away = data_res[data_res$res_ind == 1, ]
+plot(data_res_home$res, data_res_away$res)
+```
+
 
