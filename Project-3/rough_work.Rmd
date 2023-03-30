@@ -88,6 +88,11 @@ data = data %>%
   mutate(home = factor(home)) %>%
   mutate(home = fct_recode(home, "0" = "fulltime_away_goals", 
                            "1" = "fulltime_home_goals")) 
+
+#
+ind = seq(from = 2, to = nrow(data), by = 2)
+data[ind, c(1,2)] = data[ind, c(2,1)]
+names(data) = c("scoring_team", "conceding_team", "covid", "home", "fulltime_goals")
 ```
 
 
@@ -213,6 +218,23 @@ data_res = data_res %>%
 data_res_home = data_res[data_res$res_ind == 0, ]
 data_res_away = data_res[data_res$res_ind == 1, ]
 plot(data_res_home$res, data_res_away$res)
+
+# bootstrap
+n_boot = 500 # number of bootstrap
+fisher_mat = vcov(gm_full_inter)
+model_mat = model.matrix(gm_full_inter)
+deviance_boot = rep(0, n_boot)
+library("MASS")
+coef_sample = mvrnorm(n = n_boot, mu = unname(coef(gm_full_inter)), Sigma = fisher_mat)
+for (i in 1:n_boot) {
+  goals_boot = rpois(nrow(data), lambda = exp(model_mat %*% coef_sample[i,]))
+  data_boot = data
+  data$fulltime_goals = goals_boot
+  gm_boot = glm(fulltime_goals ~ . + home:covid, data = data_boot, 
+                family = "poisson")
+  deviance_boot[i] = gm_boot$deviance / gm_boot$df.residual
+}
+p = length(deviance_boot[deviance_boot > (gm_full_inter$deviance / gm_full_inter$df.residual)]) / 500
 ```
 
 
