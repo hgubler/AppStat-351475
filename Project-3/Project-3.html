@@ -393,12 +393,104 @@ draw, and away win outcomes before, during, and after the COVID-19 pandemic.</ca
 <p>Note that for our analysis we do not only consider the home effect using the match result but by the exact number of home goals scored. Still, table (<a href="#tab:exploretable">2.1</a>) indicates that there might be a change in the home effect during covid and it makes sense to pursue further analysis.</p>
 </div>
 <div id="poisson-regression-to-analyze-the-home-effect" class="section level1" number="3">
-<h1><span class="header-section-number">3</span> Poisson regression to analyze the home effect</h1>
-<div id="quantify-the-home-effect-before-covid" class="section level2" number="3.1">
-<h2><span class="header-section-number">3.1</span> Quantify the home effect before covid</h2>
+<h1><span class="header-section-number">3</span> Poisson Regression to Analyze the Home Effect</h1>
+<p>In this section we fit a poisson regression model with the number of goals scored of one team in a match as a response. Therefore we need to change the structure of our dataset because currently we have the information about homegoals and awaygoals (so two responses) in each single observation. So we pivot the variables <code>fulltime_home_goals</code> and <code>fulltime_away_goals</code> to a new variable called <code>fulltime_goals</code> and add a variable <code>home</code> to the dataset indicating whether the goal was scored by the hometeam or the awayteam. Finally we change the variables <code>home_team</code> and <code>away_team</code> to variables called <code>scoring_team</code> and <code>conceding_team</code>, such that we know to which team the <code>fulltime_goals</code> correspond. In summary, we know have the following variables in the dataset that we will use throughout the whole report.</p>
+<ul>
+<li><code>covid</code> Indicating if a game was played before covid (0), during covid (1) or after covid (2).</li>
+<li><code>scoring_team</code> Name of the team with the goal score in the corresponding response.</li>
+<li><code>conceding_team</code> Opponent of the scoring team.</li>
+<li><code>home</code> Binary indicator if the goal score in the response correspond to a home team (1) or an away team (0).</li>
+<li><code>fulltime_goals</code> The response of our poisson model giving the number of goals scored by the scoring team.</li>
+</ul>
+<p>To see if a poisson model would make sense to model the goals, we look at the mean and variance of all the home goals and away goals.</p>
+<table>
+<caption><span id="tab:poissoncheck">Table 3.1: </span>Table containing the means and variances of all homegoals and awaygoals scored in the EPL seasons 18/19, 19/20, 20/21 and 21/22</caption>
+<thead>
+<tr class="header">
+<th align="left"></th>
+<th align="right">Homegoals</th>
+<th align="right">Awaygoals</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">Mean</td>
+<td align="right">1.478571</td>
+<td align="right">1.295714</td>
+</tr>
+<tr class="even">
+<td align="left">Variance</td>
+<td align="right">1.683601</td>
+<td align="right">1.515064</td>
+</tr>
+</tbody>
+</table>
+<p>We see that there is a slight overdispersion in both the homegoals and the awaygoals. Still the means and variances are close enough to use a poisson regression model for the data and expect reasonable results.</p>
+<p>As mentioned before, we want to model the fulltime goals using the predictors <code>covid</code>, <code>scoring_team</code>, <code>conceding_team</code> and <code>home</code>. To analyze the development of the home effect during Covid it would make sense to include an interaction term between <code>home</code> and <code>covid</code> to the model. So we need to justify that the interaction term between <code>home</code> and <code>covid</code> is significant to show and quantify a change of the home effect during Covid. So we test the model without the interaction against the model with interaction using anova with the likelihood ratio test as well as the AIC and the residual deviance.</p>
+<table>
+<caption><span id="tab:testinter">Table 3.2: </span>Comparision between two poisson regression models to model
+the fulltime goals with the predictors home, covid, scoring_team and
+conceding_team where in one model we use an interaction between home and covid.</caption>
+<colgroup>
+<col width="46%" />
+<col width="10%" />
+<col width="11%" />
+<col width="3%" />
+<col width="9%" />
+<col width="10%" />
+<col width="9%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="left"></th>
+<th align="right">Resid. Df</th>
+<th align="right">Resid. Dev</th>
+<th align="right">Df</th>
+<th align="right">Deviance</th>
+<th align="right">Pr(&gt;Chi)</th>
+<th align="right">AIC</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">Model without interaction</td>
+<td align="right">2746</td>
+<td align="right">3056.809</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
+<td align="right">NA</td>
+<td align="right">8149.554</td>
+</tr>
+<tr class="even">
+<td align="left">Model with interaction between home and covid</td>
+<td align="right">2744</td>
+<td align="right">3051.065</td>
+<td align="right">2</td>
+<td align="right">5.744414</td>
+<td align="right">0.0565739</td>
+<td align="right">8147.810</td>
+</tr>
+</tbody>
+</table>
+<p>We see that both the residual deviance and the AIC are slightly lower in the model with the interaction term, suggesting that the interaction could be useful to model the fulltime goals. The p-value is also not too large, however we need to be careful because this is only an asymptotic result. But if we build a contingency table of our data we will have a lot of entries with very low or zero frequencies, which is probably not enough to reach the asymptotic distribution of the likelihood ratio.
+One way to still estimate a p-value for the model with the interaction term is to use parametric bootstrap, which will be done in the next section.</p>
+<div id="parametric-boostrap" class="section level2" number="3.1">
+<h2><span class="header-section-number">3.1</span> Parametric Boostrap</h2>
+<p>To use the parametric bootstrap to test our model with the interaction, our null hypothesis <span class="math inline">\(H_0\)</span> is that the poisson regression model with the interaction is the true model that generated the data. Now thanks to the asymptotic normality of the Maximum Likelihood Estimator (MLE), we know the asymptotic distribution of our coefficients <span class="math inline">\(\hat\beta\)</span>, that is
+<span class="math display">\[\sqrt{N}(\widehat{\beta} - \beta) \to \mathcal{N}_p(0, I^{-1}(\theta))\]</span>
+where <span class="math inline">\(\beta\)</span> is the true parameter, <span class="math inline">\(p\)</span> the number of coefficients and <span class="math inline">\(I(\theta)\)</span> is the Fisher Information.
+To estimate the p-value we perform the following steps.</p>
+<ul>
+<li>Generate the model matrix <span class="math inline">\(X\)</span> for our poisson regression model.</li>
+<li>Sample <span class="math inline">\(n\)</span> versions of the coefficients <span class="math inline">\(\beta_i^\star\)</span> with the multivariate normal distribution using the Fisher Information and <span class="math inline">\(\hat{\beta}\)</span>.</li>
+<li>For each <span class="math inline">\(\beta_i^\star\)</span> calculate <span class="math inline">\(\tilde{Y}_i^\star = X\beta_i^\star\)</span> and set <span class="math inline">\(Y_i^\star\)</span> such that for each entry we sample from a poisson distribution with mean from the same entry in <span class="math inline">\(\tilde{Y}_i^\star\)</span>.</li>
+</ul>
 </div>
-<div id="development-of-home-effect-during-covid" class="section level2" number="3.2">
-<h2><span class="header-section-number">3.2</span> Development of home effect during covid</h2>
+<div id="quantify-the-home-effect-before-covid" class="section level2" number="3.2">
+<h2><span class="header-section-number">3.2</span> Quantify the home effect before covid</h2>
+</div>
+<div id="development-of-home-effect-during-covid" class="section level2" number="3.3">
+<h2><span class="header-section-number">3.3</span> Development of home effect during covid</h2>
 <p>Try to answer the following questions</p>
 <ul>
 <li>Did the home effect reduce during Covid?</li>

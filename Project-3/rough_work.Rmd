@@ -35,13 +35,13 @@ fulltime_result = c(data_18_19$FTR, data_19_20$FTR,
 
 # extract useful variables for us
 data_18_19 = data_18_19 %>%
-  select(HomeTeam, AwayTeam, FTHG, FTAG, covid)
+  dplyr::select(HomeTeam, AwayTeam, FTHG, FTAG, covid)
 data_19_20 = data_19_20 %>%
-  select(HomeTeam, AwayTeam, FTHG, FTAG, covid)
+  dplyr::select(HomeTeam, AwayTeam, FTHG, FTAG, covid)
 data_20_21 = data_20_21 %>%
-  select(HomeTeam, AwayTeam, FTHG, FTAG, covid)
+  dplyr::select(HomeTeam, AwayTeam, FTHG, FTAG, covid)
 data_21_22 = data_21_22 %>%
-  select(HomeTeam, AwayTeam, FTHG, FTAG, covid)
+  dplyr::select(HomeTeam, AwayTeam, FTHG, FTAG, covid)
 
 # merge all seasons together to a whole dataset
 data = rbind(data_18_19, data_19_20, data_20_21, data_21_22)
@@ -96,6 +96,7 @@ names(data) = c("scoring_team", "conceding_team", "covid", "home", "fulltime_goa
 ```
 
 
+
 ## Quantify home effect before covid
 
 First create model only for season before covid to quantify home effect. So we model the response fulltime goals with the predictors hometeam, awayteam and a binary predictor home that tells if the corresponding goals correspond to the hometeam (1) or to the awayteam (0).
@@ -104,7 +105,7 @@ First create model only for season before covid to quantify home effect. So we m
 data_pre_covid = subset(data, covid == 0)
 # remove covid coloumn
 data_pre_covid = data_pre_covid %>% 
-  select(-covid)
+  dplyr::select(-covid)
 gm_pre_covid = glm(fulltime_goals ~ ., data = data_pre_covid, family = "poisson")
 print(coef(gm_pre_covid)["home1"])
 ```
@@ -177,7 +178,7 @@ So we perform residual analyses for our model. Dont include this plot in report.
 data_full %>% 
   mutate_if(is.factor, as.numeric) %>%
   mutate(res = resid(gm_2_inter)) %>%
-  select(-fulltime_goals) %>%
+  dplyr::select(-fulltime_goals) %>%
   pivot_longer(-res) %>%
   ggplot(aes(y = res, x = value)) +
   facet_wrap(~ name, scales = "free") +
@@ -220,8 +221,9 @@ data_res_away = data_res[data_res$res_ind == 1, ]
 plot(data_res_home$res, data_res_away$res)
 
 # bootstrap
-n_boot = 500 # number of bootstrap
-fisher_mat = vcov(gm_full_inter)
+set.seed(18) # for reproducability
+n_boot = 1000 # number of bootstrap
+fisher_mat = vcov(gm_full_inter) # get the inverse of the fisher information
 model_mat = model.matrix(gm_full_inter)
 deviance_boot = rep(0, n_boot)
 library("MASS")
@@ -234,7 +236,9 @@ for (i in 1:n_boot) {
                 family = "poisson")
   deviance_boot[i] = gm_boot$deviance / gm_boot$df.residual
 }
-p = length(deviance_boot[deviance_boot > (gm_full_inter$deviance / gm_full_inter$df.residual)]) / 500
+p = length(deviance_boot[deviance_boot > 
+                           (gm_full_inter$deviance / gm_full_inter$df.residual)]) / n_boot
+print(p)
 ```
 
 

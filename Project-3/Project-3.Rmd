@@ -25,40 +25,43 @@ After removing the variables not related to our question of the home effect from
 
 ```{r dataprep}
 library("tidyverse") 
-library("knitr") # for tables
+library("knitr") # to print tables
 library("car") # for type 2 anova
+
+# load the data
 data_18_19 = read.csv(file = "Data/season-1819.csv")
 data_19_20 = read.csv(file = "Data/2019-20.csv")
 data_20_21 = read.csv(file = "Data/2020-2021.csv")
 data_21_22 = read.csv(file = "Data/2021-2022.csv")
 
 # add coloumn if match was pre covid (0) or during covid (1) or post covid (2)
-fans_18_19 = rep(0, nrow(data_18_19))
-fans_19_20 = rep(0, nrow(data_19_20))
-fans_20_21 = rep(1, nrow(data_20_21))
-fans_21_22 = rep(2, nrow(data_21_22))
-data_18_19 = data_18_19 %>% mutate(covid = fans_18_19)
-data_19_20 = data_19_20 %>% mutate(covid = fans_19_20)
-data_20_21 = data_20_21 %>% mutate(covid = fans_20_21)
-data_21_22 = data_21_22 %>% mutate(covid = fans_21_22)
+covid_18_19 = rep(0, nrow(data_18_19))
+covid_19_20 = rep(0, nrow(data_19_20))
+covid_20_21 = rep(1, nrow(data_20_21))
+covid_21_22 = rep(2, nrow(data_21_22))
+data_18_19 = data_18_19 %>% mutate(covid = covid_18_19)
+data_19_20 = data_19_20 %>% mutate(covid = covid_19_20)
+data_20_21 = data_20_21 %>% mutate(covid = covid_20_21)
+data_21_22 = data_21_22 %>% mutate(covid = covid_21_22)
 
 # extract fulltime results for later
 fulltime_result = c(data_18_19$FTR, data_19_20$FTR, 
                         data_20_21$FTR, data_20_21$FTR)
 
-# extract useful variables for us
+# extract useful variables for us, tel R to use the select function from 
+# dplyr package and not from the MASS package.
 data_18_19 = data_18_19 %>%
-  select(HomeTeam, AwayTeam, FTHG, FTAG, covid)
+  dplyr::select(HomeTeam, AwayTeam, FTHG, FTAG, covid)
 data_19_20 = data_19_20 %>%
-  select(HomeTeam, AwayTeam, FTHG, FTAG, covid)
+  dplyr::select(HomeTeam, AwayTeam, FTHG, FTAG, covid)
 data_20_21 = data_20_21 %>%
-  select(HomeTeam, AwayTeam, FTHG, FTAG, covid)
+  dplyr::select(HomeTeam, AwayTeam, FTHG, FTAG, covid)
 data_21_22 = data_21_22 %>%
-  select(HomeTeam, AwayTeam, FTHG, FTAG, covid)
+  dplyr::select(HomeTeam, AwayTeam, FTHG, FTAG, covid)
 
 # merge all seasons together to a whole dataset
 data = rbind(data_18_19, data_19_20, data_20_21, data_21_22)
-# change character variables to factor except Date
+# change character variables to factor and also covid to factor
 data = data %>% 
   mutate_if(is.character, as.factor) %>%
   mutate(covid = as.factor(covid))
@@ -73,22 +76,97 @@ data = data %>%
 First, we convert the variable `date` to the factor variable `covid` with levels 0 (pre-covid, 18/19 and 19/20 seasons), 1 (covid, 20/21 season) and 2 (post-covid, 21/22 season). Using the information from these variables, we create a table with the full time result (home win, draw or away win) and the time frame (pre covid, covid and post covid) to visually deduce if there could be an effect or not.
 
 ```{r exploretable}
+# create the table 
 tab = table(fulltime_result, data$covid)
 data_tab = as.data.frame(tab)
 rownames(tab) = c("away win", "draw", "home win")
 colnames(tab) = c("pre-covid", "covid", "post-covid")
 names(data_tab) = c("winner", "covid", "freq")
-gm_1 = glm(freq ~ ., data = data_tab, family=poisson(link="log"))
+# print table
 kable(tab, caption = "Contingency table showing the distribution of home win, 
       draw, and away win outcomes before, during, and after the COVID-19 pandemic.")
-#Anova(gm_1, type = 2, test = "LR")
 ```
 
 Note that for our analysis we do not only consider the home effect using the match result but by the exact number of home goals scored. Still, table (\@ref(tab:exploretable)) indicates that there might be a change in the home effect during covid and it makes sense to pursue further analysis.
 
-# Poisson regression to analyze the home effect
+# Poisson Regression to Analyze the Home Effect
 
-In this section fit a poisson regression model with the number of goals scored of one team in a match as a response. Therefore we need to change the structure of our dataset because currently in each observation (1 game) we have the information about homegoals and awaygoals. So we create a dataframe such that each match is coded up twice, once from the hometeam perspective indicating how many times the home team scored in that match and once from the awayteam perspective indicating how many times the away team scored in that match. So we include a binary variable called "home" indicating if the goals scored are from the hometeam (1) or from the awayteam (0). So next to the factors "hometeam", "awayteam" and "home" we also include a "covid" factor as predictors for the goals scored.
+In this section we fit a poisson regression model with the number of goals scored of one team in a match as a response. Therefore we need to change the structure of our dataset because currently we have the information about homegoals and awaygoals (so two responses) in each single observation. So we pivot the variables `fulltime_home_goals` and `fulltime_away_goals` to a new variable called `fulltime_goals` and add a variable `home` to the dataset indicating whether the goal was scored by the hometeam or the awayteam. Finally we change the variables `home_team` and `away_team` to variables called `scoring_team` and `conceding_team`, such that we know to which team the `fulltime_goals` correspond. In summary, we know have the following variables in the dataset that we will use throughout the whole report.
+
+* `covid` Indicating if a game was played before covid (0), during covid (1) or after covid (2).
+* `scoring_team` Name of the team with the goal score in the corresponding response.
+* `conceding_team` Opponent of the scoring team.
+* `home` Binary indicator if the goal score in the response correspond to a home team (1) or an away team (0).
+* `fulltime_goals` The response of our poisson model giving the number of goals scored by the scoring team.
+
+```{r structurechange}
+data = pivot_longer(cols = c("fulltime_home_goals", "fulltime_away_goals"), 
+                         names_to = "home",
+                         values_to = "fulltime_goals", 
+                         data = data)
+library(forcats)
+data = data %>%
+  mutate(home = factor(home)) %>%
+  mutate(home = fct_recode(home, "0" = "fulltime_away_goals", 
+                           "1" = "fulltime_home_goals")) 
+
+#
+ind = seq(from = 2, to = nrow(data), by = 2)
+data[ind, c(1,2)] = data[ind, c(2,1)]
+names(data) = c("scoring_team", "conceding_team", "covid", "home", "fulltime_goals")
+```
+
+To see if a poisson model would make sense to model the goals, we look at the mean and variance of all the home goals and away goals.
+
+```{r poissoncheck}
+# subset the data such that we have one dataset with all the home goals and one
+# with all the away goals
+data_homegoals = subset(data, home == 1)
+data_awaygoals = subset(data, home == 0)
+# create a table containing the means and variances of the homegoals and awaygoals
+mean_var_table <- data.frame(
+  "Homegoals" = c(mean(data_homegoals$fulltime_goals), 
+                  var(data_homegoals$fulltime_goals)),
+  "Awaygoals" = c(mean(data_awaygoals$fulltime_goals),
+                  var(data_awaygoals$fulltime_goals)))
+rownames(mean_var_table) = c("Mean", "Variance")
+kable(mean_var_table, caption = "Table containing the means and variances of all homegoals and awaygoals scored in the EPL seasons 18/19, 19/20, 20/21 and 21/22")
+```
+
+We see that there is a slight overdispersion in both the homegoals and the awaygoals. Still the means and variances are close enough to use a poisson regression model for the data and expect reasonable results.
+
+As mentioned before, we want to model the fulltime goals using the predictors `covid`, `scoring_team`, `conceding_team` and `home`. To analyze the development of the home effect during Covid it would make sense to include an interaction term between `home` and `covid` to the model. So we need to justify that the interaction term between `home` and `covid` is significant to show and quantify a change of the home effect during Covid. So we test the model without the interaction against the model with interaction using anova with the likelihood ratio test as well as the AIC and the residual deviance.
+
+```{r testinter}
+gm_full = glm(fulltime_goals ~ ., data = data, family = "poisson")
+gm_full_inter = glm(fulltime_goals ~ . + home:covid, data = data, family = "poisson")
+table_comp = anova(gm_full, gm_full_inter, test = "LR")
+AIC_full = AIC(gm_full)
+AIC_full_inter = AIC(gm_full_inter)
+table_comp$AIC = c(AIC_full, AIC_full_inter)
+row.names(table_comp) = c("Model without interaction", 
+                          "Model with interaction between home and covid")
+kable(table_comp, caption = "Comparision between two poisson regression models to model
+      the fulltime goals with the predictors home, covid, scoring_team and
+      conceding_team where in one model we use an interaction between home and covid.")
+```
+
+We see that both the residual deviance and the AIC are slightly lower in the model with the interaction term, suggesting that the interaction could be useful to model the fulltime goals. The p-value is also not too large, however we need to be careful because this is only an asymptotic result. But if we build a contingency table of our data  we will have a lot of entries with very low or zero frequencies, which is probably not enough to reach the asymptotic distribution of the likelihood ratio.
+One way to still estimate a p-value for the model with the interaction term is to use parametric bootstrap, which will be done in the next section.    
+
+## Parametric Boostrap
+
+To use the parametric bootstrap to test our model with the interaction, our null hypothesis $H_0$ is that the poisson regression model with the interaction is the true model that generated the data. Now thanks to the asymptotic normality of the Maximum Likelihood Estimator (MLE), we know the asymptotic distribution of our coefficients $\hat\beta$, that is 
+$$\sqrt{N}(\widehat{\beta} - \beta) \to \mathcal{N}_p(0, I^{-1}(\theta))$$ 
+where $\beta$ is the true parameter, $p$ the number of coefficients and $I(\theta)$ is the Fisher Information.
+To estimate the p-value we perform the following steps.
+
+* Generate the model matrix $X$ for our poisson regression model.
+* Sample $n$ versions of the coefficients $\beta_i^\star$ with the multivariate normal distribution using the Fisher Information and $\hat{\beta}$.
+* For each $\beta_i^\star$ calculate $\tilde{Y}_i^\star = X\beta_i^\star$ and set $Y_i^\star$ such that for each entry we sample from a poisson distribution with mean from the same entry in $\tilde{Y}_i^\star$.
+
+
+
 
 ## Quantify the home effect before covid
 
@@ -98,7 +176,6 @@ Try to answer the following questions
 
 * Did the home effect reduce during Covid?
 * What is the development of the home effect after Covid?
-
 
 
 
