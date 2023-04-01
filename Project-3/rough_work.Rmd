@@ -221,7 +221,7 @@ data_res_away = data_res[data_res$res_ind == 1, ]
 plot(data_res_home$res, data_res_away$res)
 
 # bootstrap
-set.seed(18) # for reproducability
+set.seed(1) # for reproducability
 n_boot = 1000 # number of bootstrap
 fisher_mat = vcov(gm_full_inter) # get the inverse of the fisher information
 model_mat = model.matrix(gm_full_inter)
@@ -231,7 +231,7 @@ coef_sample = mvrnorm(n = n_boot, mu = unname(coef(gm_full_inter)), Sigma = fish
 for (i in 1:n_boot) {
   goals_boot = rpois(nrow(data), lambda = exp(model_mat %*% coef_sample[i,]))
   data_boot = data
-  data$fulltime_goals = goals_boot
+  data_boot$fulltime_goals = goals_boot
   gm_boot = glm(fulltime_goals ~ . + home:covid, data = data_boot, 
                 family = "poisson")
   deviance_boot[i] = gm_boot$deviance / gm_boot$df.residual

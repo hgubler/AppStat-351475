@@ -484,7 +484,15 @@ To estimate the p-value we perform the following steps.</p>
 <li>Generate the model matrix <span class="math inline">\(X\)</span> for our poisson regression model.</li>
 <li>Sample <span class="math inline">\(n\)</span> versions of the coefficients <span class="math inline">\(\beta_i^\star\)</span> with the multivariate normal distribution using the Fisher Information and <span class="math inline">\(\hat{\beta}\)</span>.</li>
 <li>For each <span class="math inline">\(\beta_i^\star\)</span> calculate <span class="math inline">\(\tilde{Y}_i^\star = X\beta_i^\star\)</span> and set <span class="math inline">\(Y_i^\star\)</span> such that for each entry we sample from a poisson distribution with mean from the same entry in <span class="math inline">\(\tilde{Y}_i^\star\)</span>.</li>
+<li>Perform <span class="math inline">\(n\)</span> poisson regressions with the same predictors as in our original model but with <span class="math inline">\(Y_i^\star\)</span> as response and calculate the residual deviances <span class="math inline">\(d_i^\star\)</span> for these models.</li>
 </ul>
+<p>Now if we denote <span class="math inline">\(d\)</span> as the residual deviance of our original model, we can estimate the p-value as
+<span class="math display">\[
+\hat{p} = \frac{1}{n} \sum_{i=1}^n \mathbb{1}_{\{d_i^\star &gt; d\}}.
+\]</span></p>
+<pre><code>## [1] 0.852</code></pre>
+<p>Performing these calculations with <span class="math inline">\(n=1000\)</span> bootstraps we get an estimated p-value of .
+So we won’t reject <span class="math inline">\(H_0\)</span>, giving us more evidence that <span class="math inline">\(H_0\)</span> is true.</p>
 </div>
 <div id="quantify-the-home-effect-before-covid" class="section level2" number="3.2">
 <h2><span class="header-section-number">3.2</span> Quantify the home effect before covid</h2>

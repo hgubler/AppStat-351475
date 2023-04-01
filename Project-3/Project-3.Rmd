@@ -27,6 +27,7 @@ After removing the variables not related to our question of the home effect from
 library("tidyverse") 
 library("knitr") # to print tables
 library("car") # for type 2 anova
+library("MASS") # for the multivariate normal distribution
 
 # load the data
 data_18_19 = read.csv(file = "Data/season-1819.csv")
@@ -130,7 +131,7 @@ mean_var_table <- data.frame(
   "Awaygoals" = c(mean(data_awaygoals$fulltime_goals),
                   var(data_awaygoals$fulltime_goals)))
 rownames(mean_var_table) = c("Mean", "Variance")
-kable(mean_var_table, caption = "Table containing the means and variances of all homegoals and awaygoals scored in the EPL seasons 18/19, 19/20, 20/21 and 21/22")
+kable(mean_var_table, caption = "Table containing the means and variances of all homegoals and awaygoals scored in the EPL seasons 18/19, 19/20, 20/21 and 21/22.")
 ```
 
 We see that there is a slight overdispersion in both the homegoals and the awaygoals. Still the means and variances are close enough to use a poisson regression model for the data and expect reasonable results.
@@ -164,9 +165,40 @@ To estimate the p-value we perform the following steps.
 * Generate the model matrix $X$ for our poisson regression model.
 * Sample $n$ versions of the coefficients $\beta_i^\star$ with the multivariate normal distribution using the Fisher Information and $\hat{\beta}$.
 * For each $\beta_i^\star$ calculate $\tilde{Y}_i^\star = X\beta_i^\star$ and set $Y_i^\star$ such that for each entry we sample from a poisson distribution with mean from the same entry in $\tilde{Y}_i^\star$.
+* Perform $n$ poisson regressions with the same predictors as in our original model but with $Y_i^\star$ as response and calculate the residual deviances $d_i^\star$ for these models.
 
+Now if we denote $d$ as the residual deviance of our original model, we can estimate the p-value as
+$$
+\hat{p} = \frac{1}{n} \sum_{i=1}^n \mathbb{1}_{\{d_i^\star > d\}}.
+$$
+```{r bootstrap}
+set.seed(27) # for reproducability
+n_boot = 1000 # number of bootstrap
+fisher_mat = vcov(gm_full_inter) # get the inverse of the fisher information
+model_mat = model.matrix(gm_full_inter) # model matrix
+deviance_boot = rep(0, n_boot) # to store all the deviances of the bootstrapped models
+# sample the bootstrapped coefeficients
+coef_sample = mvrnorm(n = n_boot, mu = unname(coef(gm_full_inter)), Sigma = fisher_mat)
+for (i in 1:n_boot) {
+  # simulate response data using poisson distibution and means from the bootstrapped
+  # models
+  goals_boot = rpois(nrow(data), lambda = exp(model_mat %*% coef_sample[i,]))
+  # create bootstrapped dataset with sampled goals from above
+  data_boot = data
+  data_boot$fulltime_goals = goals_boot
+  # poisson regression model with poisson sampled goals as response from above
+  gm_boot = glm(fulltime_goals ~ . + home:covid, data = data_boot, 
+                family = "poisson")
+  # store deviance for i-th bootstrapped model
+  deviance_boot[i] = gm_boot$deviance
+}
+# calculate p-value estimate
+p = length(deviance_boot[deviance_boot > (gm_full_inter$deviance)]) / n_boot
+print(p)
+```
 
-
+Performing these calculations with $n=1000$ bootstraps we get an estimated p-value of .
+So we won't reject $H_0$, giving us more evidence that $H_0$ is true.
 
 ## Quantify the home effect before covid
 
