@@ -135,6 +135,7 @@ rownames(mean_var_table) = c("Mean", "Variance")
 kable(mean_var_table, caption = "Table containing the means and variances of all homegoals and awaygoals per match over the EPL seasons 18/19, 19/20, 20/21 and 21/22.")
 ```
 
+
 We see that there is a slight overdispersion in both the home goals and the away goals. Still the means and variances are close enough to use a poisson regression model for the data and expect reasonable results.
 
 As mentioned before, we want to model the fulltime goals using the predictors `covid`, `scoring_team`, `conceding_team` and `home`. To analyze the development of the home effect during Covid it would make sense to include an interaction term between `home` and `covid` to the model. So we need to justify that the interaction term between `home` and `covid` is significant in order to show and quantify a change of the home effect during Covid. Therefore we test the poisson regression model without the interaction against the model with interaction using the likelihood ratio test as well as the AIC and the residual deviance.
@@ -152,6 +153,8 @@ kable(table_comp, caption = "Comparision between two poisson regression models t
       the fulltime goals with the predictors home, covid, scoring_team and
       conceding_team where in one model we use an interaction between home and covid.")
 ```
+
+
 For both models we have that the residual deviance divided by its degrees of freedom is larger than one, confirming the overdispersion we were able to detect in table (\@ref(tab:poissoncheck)).
 Furthermore we see that both the residual deviance and the AIC are slightly lower in the model with the interaction term, suggesting that the interaction could be useful to model the fulltime goals. The p-value is also not too large, however we need to be careful because this is only an asymptotic result. If we build a contingency table of our data  we will have a lot of entries with very low or zero frequencies, which is probably not enough to reach the asymptotic distribution of the likelihood ratio.
 One way to still estimate a p-value for the model with the interaction term is to use parametric bootstrap, which will be done in the next section.    
@@ -277,6 +280,8 @@ colnames(coef_table) = c("Coefficient name", "Coeficient value", "2.5%", "97.5%"
 # print table and round values to 3 digits for readability
 kable(coef_table, caption = "Selected coefficients with 95% confidence intervals from the poisson regression model containing the interaction between Covid and home.", digits = 3)
 ```
+
+
 First, note that the base level of the factor `covid` is 0 (pre-Covid) and the base level of the factor `home` is 0 (away goals). Now the coefficients are interpreted as follows.
 
 * Before Covid, the expected number of goals change by a factor of $e^{0.194} \approx 1.213$ if a team plays at home instead of away (home effect before Covid).
@@ -335,6 +340,8 @@ names(coef_table_relegated) = c("Coefficient name", "Original model",
 # print table with the coefficients and round to 3 digits for readability
 kable(coef_table_relegated, caption = "Selected coefficients from the poisson regression model with all observations and from the same model but without observations from teams that didn't participate in all EPL seasons 18/9, 19/20, 20/21 and 21/22.", digits = 3)
 ```
+
+
 The coefficients of the model excluding observations from teams that are not present in all seasons 18/19, 19/20, 20/21 and 21/22 don't differ too much from those of the original model, so the interpretations from last section would be very similar with these coefficients. Still, the expected number of home goals in a match after Covid compared to before Covid when excluding relegated/promoted teams change by a factor of $e^{0.024 + 0.004} = 1.028$, so the slight reduction in home goals after Covid compared to before disappeared now. But this small change in the factor doesn't affect the interpretation too much and could also be due to random noise.
 
 So we conclude that the major effects observed in last section are not due to teams that were relegated or promoted during the time of our EPL data.
