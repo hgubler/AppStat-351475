@@ -276,7 +276,7 @@ colnames(coef_table) = c("Coefficient name", "Coeficient value", "2.5%", "97.5%"
 # print table and round values to 3 digits for readability
 kable(coef_table, caption = "Selected coefficients with 95% confidence intervals from the poisson regression model containing the interaction between Covid and home.", digits = 3)
 ```
-The coefficients are interpreted as follows.
+First, note that the base level of the factor `covid` is 0 (pre-Covid) and the base level of the factor `home` is 0 (away goals). Now the coefficients are interpreted as follows.
 
 * Before Covid, the expected number of goals change by a factor of $e^{0.194} \approx 1.213$ if a team plays at home instead of away (home effect before Covid).
 * During Covid, the expected number of goals change by a factor of $e^{0.194 - 0.187} \approx 1.007$ if a team plays at home instead of away (home effect during Covid).
