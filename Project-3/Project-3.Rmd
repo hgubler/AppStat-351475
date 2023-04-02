@@ -11,11 +11,11 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 
 # Introduction
 
-In this report we will analyze data containing all the football games with results from the English premier league (EPL) seasons 18/19, 19/20, 20/21 and 21/22. In the 20/21 season no fans were allowed to the stadiums due to the Covid-19 pandemic. Accordingly, in the following sections we will use the circumstance of no fans being allowed to the EPL stadiums to determine if the home effect changed during Covid and analyze the development after Covid. For our analysis we quantify the home effect as the expected number of goals from the home team and will try to answer the above questions by modelling the data using poisson regression.
+In this report we will analyze data containing all the football games with results from the English premier league (EPL) seasons 18/19, 19/20, 20/21 and 21/22. In the 20/21 season no fans were allowed in the stadiums due to the Covid-19 pandemic. Accordingly, in the following sections we will use the circumstance of no fans being allowed to the EPL stadiums to determine if the home effect changed during Covid and analyze the development after Covid. For our analysis we quantify the home effect as the expected number of goals from the home team and will try to answer the above questions by modelling the data using a poisson regression model.
 
 # Data Exploration
 
-After removing the variables not related to our question of the home effect from our data, we have the following variables available.
+After removing the variables not related to our question about the home effect, we have the following variables available.
 
 * `date` Date when the match was played.
 * `home_team` Name of the home team in the match.
@@ -62,6 +62,7 @@ data_21_22 = data_21_22 %>%
 
 # merge all seasons together to a whole dataset
 data = rbind(data_18_19, data_19_20, data_20_21, data_21_22)
+
 # change character variables to factor and also covid to factor
 data = data %>% 
   mutate_if(is.character, as.factor) %>%
@@ -74,7 +75,7 @@ data = data %>%
   rename(home_team = HomeTeam, away_team = AwayTeam, 
          fulltime_home_goals = FTHG, fulltime_away_goals = FTAG)
 ```
-First, we convert the variable `date` to the factor variable `covid` with levels 0 (pre-cCvid, 18/19 and 19/20 seasons), 1 (Covid, 20/21 season) and 2 (post-Covid, 21/22 season). Using the information from these variables, we create a table with the full time result (home win, draw or away win) and the time frame (pre-Covid, Covid and post-Covid) to visually deduce if there could be an effect or not.
+First, we convert the variable `date` to a factor variable named `covid` with levels 0 (pre-Covid, 18/19 and 19/20 seasons), 1 (Covid, 20/21 season) and 2 (post-Covid, 21/22 season). Using the information from these variables, we create a table with the full time result (home win, draw or away win) and the time frame (pre-Covid, Covid and post-Covid) to visually deduce if there could be an effect or not.
 
 ```{r exploretable}
 # create the table 
@@ -92,7 +93,7 @@ Note that for our analysis we do not quantify the home effect by only using the 
 
 # Poisson Regression to Analyze the Home Effect
 
-In this section we fit a poisson regression model with the number of goals scored of one team in a match as a response. Therefore we need to change the structure of our dataset because currently we have the information about home goals and away goals (so two responses) in each single observation. So we pivot the variables `fulltime_home_goals` and `fulltime_away_goals` to a new variable called `fulltime_goals` and add a variable `home` to the dataset indicating whether the goal was scored by a home team or an away team. Finally we change the variables `home_team` and `away_team` to variables called `scoring_team` and `conceding_team`, such that we know to which team the response `fulltime_goals` correspond. In summary, we now have the following variables in the dataset that we will use throughout the whole report.
+In this section we fit a poisson regression model with the number of goals scored of one team in a match as response. Therefore we need to change the structure of our dataset because currently we have the information about home goals and away goals (so two responses) in each single observation. So we pivot the variables `fulltime_home_goals` and `fulltime_away_goals` to a new variable called `fulltime_goals` and add a variable `home` to the dataset indicating whether the goals in the response were scored by a home team or an away team. Finally we change the variables `home_team` and `away_team` to variables called `scoring_team` and `conceding_team`, such that we know to which team the response `fulltime_goals` correspond. In summary, we now have the following variables in the dataset that we will use throughout the whole report.
 
 * `covid` Indicating if a game was played before Covid (0), during Covid (1) or after Covid (2).
 * `scoring_team` Name of the team with the goal score in the corresponding response.
@@ -117,7 +118,7 @@ data[ind, c(1,2)] = data[ind, c(2,1)]
 names(data) = c("scoring_team", "conceding_team", "covid", "home", "fulltime_goals")
 ```
 
-To see if a poisson model would make sense to model the goals, we look at the mean and variance of all the home goals and away goals per match.
+To see if a poisson regression would make sense to model the goals, we look at the mean and variance of all the home goals and away goals per match.
 
 ```{r poissoncheck}
 # subset the data such that we have one dataset with all the home goals and one
@@ -136,7 +137,7 @@ kable(mean_var_table, caption = "Table containing the means and variances of all
 
 We see that there is a slight overdispersion in both the home goals and the away goals. Still the means and variances are close enough to use a poisson regression model for the data and expect reasonable results.
 
-As mentioned before, we want to model the fulltime goals using the predictors `covid`, `scoring_team`, `conceding_team` and `home`. To analyze the development of the home effect during Covid it would make sense to include an interaction term between `home` and `covid` to the model. So we need to justify that the interaction term between `home` and `covid` is significant to show and quantify a change of the home effect during Covid. So we test the poisson regression model without the interaction against the model with interaction using the likelihood ratio test as well as the AIC and the residual deviance.
+As mentioned before, we want to model the fulltime goals using the predictors `covid`, `scoring_team`, `conceding_team` and `home`. To analyze the development of the home effect during Covid it would make sense to include an interaction term between `home` and `covid` to the model. So we need to justify that the interaction term between `home` and `covid` is significant in order to show and quantify a change of the home effect during Covid. Therefore we test the poisson regression model without the interaction against the model with interaction using the likelihood ratio test as well as the AIC and the residual deviance.
 
 ```{r testinter}
 gm_full = glm(fulltime_goals ~ ., data = data, family = "poisson")
@@ -158,7 +159,7 @@ One way to still estimate a p-value for the model with the interaction term is t
 ## Parametric Boostrap
 
 To use parametric bootstrap to test our model with the interaction, our null hypothesis $H_0$ is that the poisson regression model with the interaction term is the true model that generated the data. Now thanks to the asymptotic normality of the Maximum Likelihood Estimator (MLE), we know the asymptotic distribution of our coefficients $\hat\beta$, that is 
-$$\sqrt{N}(\widehat{\beta} - \beta) \to \mathcal{N}_p(0, I^{-1}(\theta))$$ 
+$$\sqrt{N}(\widehat{\beta} - \beta) \to \mathcal{N}_p(0, I^{-1}(\theta)),$$ 
 where $\beta$ is the true parameter, $p$ the number of coefficients and $I(\theta)$ is the Fisher Information.
 To estimate the p-value we perform the following steps.
 
@@ -198,11 +199,11 @@ p = length(deviance_boot[deviance_boot > (gm_full_inter$deviance)]) / n_boot
 ```
 
 Performing these calculations with $n=1000$ bootstraps we get an estimated p-value of 0.852.
-So we don't reject $H_0$, giving us more evidence that $H_0$ is true and we will proceed with the model containing the interaction term between `home` and `covid` for the further analysis in this report.
+So we don't reject $H_0$, giving us more evidence in favor of $H_0$ and we will proceed with the model containing the interaction term between `home` and `covid` for the further analysis in this report.
 
 ## Residual Analysis
 
-One important assumption of the poisson regression is that the observations are independent. But since we manipulated the data such that for each game we have two observations, one corresponding to the number of goals from the home team and one corresponding to the number of goals for the away team, we can't have complete independence between the observations. But we can hope that this effect is not too strong, i.e. that there is not a too strong dependence between the home team goals and the away team goals within one game. One way to analyze that dependence is to plot the residuals from away team goals vs the residuals from the home team goals in the same game
+One important assumption of the poisson regression is that the observations are independent. But since we manipulated the data such that for each game we have two observations, one corresponding to the number of goals from the home team and one corresponding to the number of goals for the away team, we can't have complete independence between the observations. But we can hope that this effect is not too strong, i.e. that there is not a too strong dependence between the home team goals and the away team goals within one game. One way to analyze that dependence is to plot the residuals from away team goals vs the residuals from the home team goals in the same game.
 
 ```{r residuals1, fig.cap="Residuals from the poisson regression model corresponding to the away team goals vs residuals corresponding to the home team goals from the same game."}
 # take residuals from the model and store them in new dataframe
@@ -291,7 +292,7 @@ The confidence intervals can be interpreted as follows.
 * Based on our data we are 95% sure that the home effect before Covid is in the interval $[e^{0.101}, \, e^{0.288}] \approx [1.106, \, 1.334]$.
 * Based on our data we are 95% sure that the home effect change during Covid compared to before, when taking into account that during Covid the expected number of goals was slightly higher than before, is in the interval $[e^{-0.341}, \, e^{-0.033}] \approx [0.711, \,0.968]$.
 
-To summarize our findings, we can see that there was a clear home effect before Covid which almost completely disappeared during Covid and then came back again after Covid and we have multiplicative factors to quantify these changes over the time. Still we observe that the home effect after Covid slightly reduced compared to before Covid. 
+To summarize our findings, we can see that there was a clear home effect before Covid which almost completely disappeared during Covid and then came back again after Covid and we have multiplicative factors to quantify these changes over the time. Furthermore we observe that the home effect after Covid slightly reduced compared to before Covid. 
 
 The 95% confidence intervals support our findings because they are not too wide and in both examples above are either completely below or above the critical value one.
 
@@ -313,7 +314,7 @@ To address this question, we fit exactly the same poisson regression model as be
 * Leeds United
 * FC Brentford
 
-Once we have the model without observation from these teams, we compare its coefficients to the coefficients of our original model.
+Once we have the model without observations from these teams, we compare its coefficients to the coefficients of our original model.
 
 ```{r relegated}
 # create a vectore with all teams that we don't want in our analysis
@@ -334,13 +335,13 @@ names(coef_table_relegated) = c("Coefficient name", "Original model",
 # print table with the coefficients and round to 3 digits for readability
 kable(coef_table_relegated, caption = "Selected coefficients from the poisson regression model with all observations and from the same model but without observations from teams that didn't participate in all EPL seasons 18/9, 19/20, 20/21 and 21/22.", digits = 3)
 ```
-The coefficients of the model excluding observations from teams that are not present in all seasons 18/19, 19/20, 20/21 and 21/22 don't differ too much from those of the original model, so the interpretations from last section would be very similar with these coefficients. Still, the expected number of home goals in a match after Covid compared to before Covid when excluding relegated/promoted teams change by a factor of $e^{0.024 + 0.004} = 1.028$, so the slight reduction in home goals after Covid compared to before disappeared now. But this small change in the factor doesn't change the interpretation too much and could also be due to random noise.
+The coefficients of the model excluding observations from teams that are not present in all seasons 18/19, 19/20, 20/21 and 21/22 don't differ too much from those of the original model, so the interpretations from last section would be very similar with these coefficients. Still, the expected number of home goals in a match after Covid compared to before Covid when excluding relegated/promoted teams change by a factor of $e^{0.024 + 0.004} = 1.028$, so the slight reduction in home goals after Covid compared to before disappeared now. But this small change in the factor doesn't affect the interpretation too much and could also be due to random noise.
 
 So we conclude that the major effects observed in last section are not due to teams that were relegated or promoted during the time of our EPL data.
 
 # Conclusion
 
-In this report we were able to give statistical evidence that the home effect in the EPL almost disappeared during Covid and then came back after. This suggests that fans are an important factor for a football team and have the power to increase a home team's performance. However we can still not be sure whether the fans are helping the players of the home team to play better or if they just influence the referee to make biased decisions in favor of the home team, but as a football fan myself I to tend to the first explanation. Moreover, in the 19/20 season the Video Assistant Referee (VAR) was introduced in the EPL so if the referee would make game changing decisions in favor of the home team because of the fans they would be corrected by the VAR. 
+In this report we were able to give statistical evidence that the home effect in the EPL almost disappeared during Covid and then came back after. This suggests that fans are an important factor for a football team and have the power to increase a home team's performance. However we can still not be sure whether the fans are helping the players of the home team to play better or if they just influence the referee to make biased decisions in favor of the home team, but as a football fan myself I tend to the first explanation. Moreover, in the 19/20 season the Video Assistant Referee (VAR) was introduced in the EPL so if the referee would make game changing decisions in favor of the home team because of the fans they would be corrected by the VAR. 
 In the end it is probably a mix of both explanations, but it would be an interesting follow up investigation to analyze the home effect before and after the VAR was introduced in the EPL.
 
 
