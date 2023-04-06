@@ -1,5 +1,5 @@
 library(MASS)
-load("Data/bootstrap_data.RData")
+load("Project-3/Data/bootstrap_data.RData")
 gm_full_inter = glm(fulltime_goals ~ . + home:covid, data = data, family = "poisson")
 set.seed(27) # for reproducability
 n_boot = 1000 # number of bootstrap
