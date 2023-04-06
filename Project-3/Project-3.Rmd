@@ -11,7 +11,8 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 
 # Introduction
 
-In this report we will analyze data containing all the football games with results from the English premier league (EPL) seasons 18/19, 19/20, 20/21 and 21/22. In the 20/21 season no fans were allowed in the stadiums due to the Covid-19 pandemic. Accordingly, in the following sections we will use the circumstance of no fans being allowed to the EPL stadiums to determine if the home effect changed during Covid and analyze the development after Covid. For our analysis we quantify the home effect as the expected number of goals from the home team and will try to answer the above questions by modelling the data using a poisson regression model.
+There is no debate about the existence of the home effect in football, meaning that the home team in a football game has a general advantage to win. However the opinions differ when we try to explain the reason for the team advantage. Some people may suggest that the home effect in football is due to the crowd support, whereas others would say that it is due to the familiarity with the stadium.
+In this report we will analyze data containing all the football games with results from the English premier league (EPL) seasons 18/19, 19/20, 20/21 and 21/22. In the 20/21 season no fans were allowed in the stadiums due to the Covid-19 pandemic. Accordingly, in the following sections we will use the circumstance of no fans being allowed to the EPL stadiums to determine if the home effect changed during Covid and analyze the development after Covid. This analysis will help us to quantify the effect of the home crowd in a football game. For our analysis we quantify the home effect as the expected number of goals from the home team and will try to answer the above questions by modelling the data using a poisson regression model.
 
 # Data Exploration
 
@@ -47,7 +48,7 @@ data_21_22 = data_21_22 %>% mutate(covid = covid_21_22)
 
 # extract fulltime results for later
 fulltime_result = c(data_18_19$FTR, data_19_20$FTR, 
-                        data_20_21$FTR, data_20_21$FTR)
+                        data_20_21$FTR, data_21_22$FTR)
 
 # extract useful variables for us, tel R to use the select function from 
 # dplyr package and not from the MASS package.
@@ -80,13 +81,18 @@ First, we convert the variable `date` to a factor variable named `covid` with le
 ```{r exploretable}
 # create the table 
 tab = table(fulltime_result, data$covid)
+# calculate proportions
+tab[, 1] = tab[, 1] / (nrow(data_18_19) + nrow(data_19_20))
+tab[, 2] = tab[, 2] / nrow(data_20_21)
+tab[, 3] = tab[, 3] / nrow(data_21_22)
 data_tab = as.data.frame(tab)
-rownames(tab) = c("away win", "draw", "home win")
+rownames(tab) = c("away win proportion", "draw proportion", "home win proportion")
 colnames(tab) = c("pre-covid", "covid", "post-covid")
-names(data_tab) = c("winner", "covid", "freq")
+# names(data_tab) = c("winner", "covid", "freq")
 # print table
-kable(tab, caption = "Contingency table showing the distribution of home win, 
-      draw, and away win outcomes before, during, and after the COVID-19 pandemic.")
+kable(tab, caption = "Contingency table showing the rounded proportions of home win, 
+      draw and away win outcomes before, during, and after the COVID-19 pandemic.", 
+      digits = 3)
 ```
 
 Note that for our analysis we do not quantify the home effect by only using the match result but by the exact number of home goals scored. Still, table (\@ref(tab:exploretable)) indicates that there might be a change in the home effect during Covid and it makes sense to pursue further analysis.
@@ -141,8 +147,10 @@ We see that there is a slight overdispersion in both the home goals and the away
 As mentioned before, we want to model the fulltime goals using the predictors `covid`, `scoring_team`, `conceding_team` and `home`. To analyze the development of the home effect during Covid it would make sense to include an interaction term between `home` and `covid` to the model. So we need to justify that the interaction term between `home` and `covid` is significant in order to show and quantify a change of the home effect during Covid. Therefore we test the poisson regression model without the interaction against the model with interaction using the likelihood ratio test as well as the AIC and the residual deviance.
 
 ```{r testinter}
+# fit the models with interaction and without
 gm_full = glm(fulltime_goals ~ ., data = data, family = "poisson")
 gm_full_inter = glm(fulltime_goals ~ . + home:covid, data = data, family = "poisson")
+# compare models using LRT and AIC and print results
 table_comp = anova(gm_full, gm_full_inter, test = "LR")
 AIC_full = AIC(gm_full)
 AIC_full_inter = AIC(gm_full_inter)
@@ -157,11 +165,12 @@ kable(table_comp, caption = "Comparision between two poisson regression models t
 
 For both models we have that the residual deviance divided by its degrees of freedom is larger than one, confirming the overdispersion we were able to detect in table (\@ref(tab:poissoncheck)).
 Furthermore we see that both the residual deviance and the AIC are slightly lower in the model with the interaction term, suggesting that the interaction could be useful to model the fulltime goals. The p-value is also not too large, however we need to be careful because this is only an asymptotic result. If we build a contingency table of our data  we will have a lot of entries with very low or zero frequencies, which is probably not enough to reach the asymptotic distribution of the likelihood ratio.
-One way to still estimate a p-value for the model with the interaction term is to use parametric bootstrap, which will be done in the next section.    
+
+The results from table (\@ref(tab:testinter)) are suggesting that the interaction might be significant but the differences in AIC and Residual Deviance are not substantial. Thus to make sure that including the interaction is not a mistake, we perform a goodness of fit test for the interaction model using parametric bootstrap.
 
 ## Parametric Boostrap
 
-To use parametric bootstrap to test our model with the interaction, our null hypothesis $H_0$ is that the poisson regression model with the interaction term is the true model that generated the data. Now thanks to the asymptotic normality of the Maximum Likelihood Estimator (MLE), we know the asymptotic distribution of our coefficients $\hat\beta$, that is 
+To utilize parametric bootstrap to asses the quality our model's performance with the interaction, our null hypothesis $H_0$ is that the poisson regression model with the interaction term is the true model that generated the data. Now thanks to the asymptotic normality of the Maximum Likelihood Estimator (MLE), we know the asymptotic distribution of our coefficients $\hat\beta$, that is 
 $$\sqrt{N}(\widehat{\beta} - \beta) \to \mathcal{N}_p(0, I^{-1}(\theta)),$$ 
 where $\beta$ is the true parameter, $p$ the number of coefficients and $I(\theta)$ is the Fisher Information.
 To estimate the p-value we perform the following steps.
@@ -176,28 +185,9 @@ $$
 \hat{p} = \frac{1}{n} \sum_{i=1}^n \mathbb{1}_{\{d_i^\star > d\}}.
 $$
 ```{r bootstrap}
-set.seed(27) # for reproducability
-n_boot = 1000 # number of bootstrap
-fisher_mat = vcov(gm_full_inter) # get the inverse of the fisher information
-model_mat = model.matrix(gm_full_inter) # model matrix
-deviance_boot = rep(0, n_boot) # to store all the deviances of the bootstrapped models
-# sample the bootstrapped coefeficients
-coef_sample = mvrnorm(n = n_boot, mu = unname(coef(gm_full_inter)), Sigma = fisher_mat)
-for (i in 1:n_boot) {
-  # simulate response data using poisson distibution and means from the bootstrapped
-  # models
-  goals_boot = rpois(nrow(data), lambda = exp(model_mat %*% coef_sample[i,]))
-  # create bootstrapped dataset with sampled goals from above
-  data_boot = data
-  data_boot$fulltime_goals = goals_boot
-  # poisson regression model with poisson sampled goals as response from above
-  gm_boot = glm(fulltime_goals ~ . + home:covid, data = data_boot, 
-                family = "poisson")
-  # store deviance for i-th bootstrapped model
-  deviance_boot[i] = gm_boot$deviance
-}
-# calculate p-value estimate
-p = length(deviance_boot[deviance_boot > (gm_full_inter$deviance)]) / n_boot
+# p value calculated in "bootstrap_script.R"
+load("Data/p_value.RData")
+p = as.numeric(p_value)
 # print(p)
 ```
 
@@ -224,7 +214,7 @@ ggplot(data = res_data, aes(x = V2, y = V1)) +
   xlab("Home Residuals") + 
   ylab("Away Residuals")
 ```
-We immediately notice the two lines at bottom and left side of the plot, so we have a lot of residuals with the same value (probably corresponding to zero goals observations). Other than that there are no clear patterns on the plot, so the dependence of home team goals and away team goals from the same match seems to be not too strong.
+We immediately notice the two lines at bottom and left side of the plot, so we have a lot of residuals with the same value (probably corresponding to zero goals observations). Additionally we observe some light tail dependence, meaning that if one team scores a lot of goals it influences the opponents number of goals. Other than that there are no clear patterns on the plot, so the dependence of home team goals and away team goals from the same match seems to be not too strong.
 
 Next, we analyze the residuals in all seasons 18/19, 19/20, 20/21 and 21/22. We would like the residuals to share a similar distribution over the four seasons, so the relationship between the response and the predictors is consistent across the different seasons (note that e.g. the teams change players each year and will therefore not perform on the same level every year, this could lead to different relationships in different seasons).
 
