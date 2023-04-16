@@ -12,11 +12,40 @@ knitr::opts_chunk$set(echo = TRUE)
 # Data
 
 ```{r}
+library("readr") # to load data
 data <- read_table("4_US_elections.txt")
 northeast = c(7, 8, 19, 20, 21, 29, 30, 32, 38, 39, 45, 48)
 south = c(1, 4, 9, 10, 17, 18, 24, 33, 36, 40, 42, 43, 46)
 midwest = c(13, 14, 15, 16, 22, 23, 25, 27, 34, 35, 41, 49)
 west = c(2, 3, 5, 6, 11, 12, 26, 28, 31, 37, 44, 47, 50)
-data$region = 
+
+data$region <- ifelse(data$state %in% northeast, "northeast",
+                      ifelse(data$state %in% south, "south",
+                             ifelse(data$state %in% midwest, "midwest",
+                                    ifelse(data$state %in% west, "west", NA))))
+
 ```
 
+
+Fit a first model excluding the inc and presinc variables and region.
+```{r}
+library(tidyverse)
+data = data %>% mutate(year = as.factor(year))
+m0 = lm(Dvote ~ . - constant - n2 - n3 - n4 - s6 - region, data = data)
+# Create a new data frame with residuals
+residuals <- data.frame(resid = residuals(m0))
+
+# Add region information to residuals data frame
+data = na.omit(data)
+residuals$region <- data$region
+
+
+data %>% ggplot(mapping=aes(y=resid(m0),col=year), main="s") + geom_boxplot() + labs(caption="Figure: Residuals grouped by tree.") + theme(plot.caption = element_text(size=18))
+```
+
+
+## Questions
+
+* No way to include n2/n3: If coef is positive, even a very low presidential approval for a democratic president (positive number) increases Dvote. If coef is negative, a very high presidential approval for a republician president (negative number) increases Dvote.
+* Similar for all variables with Inc - Change all inc variables to 3 level factor?
+* 
