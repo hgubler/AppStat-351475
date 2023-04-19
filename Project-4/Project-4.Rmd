@@ -6,25 +6,114 @@ output: bookdown::html_document2
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 ```
 
-## R Markdown
+# Introduction
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+The U.S. Presidential elections are one of the most significant political events in the world and draw attention from all across the globe. The elections, which take place every four years, determine the president of the United States for the next four years. In contrary to most countries in this world, there is not a single nationwide election. Instead, it is a series of separate state-level elections, which then are combined to determine the winner. Each state has a certain number of "electoral votes" that are (more or less) based on its population and the candidate with the most votes in a given state wins all of that state's electoral votes.
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+In this report, we explore the data on U.S. Presidential elections between 1948 and 1992, focusing on the two-party vote for the Democratic and Republican candidates in each state and year. We try to model the share of democratic votes in a given state and year first with a linear model and later with a linear mixed model. By analyzing the data, we aim to identify crucial factors that lead to electoral success in the United States. Furthermore we investigate how we can apply linear mixed model to the data to overcome the independence assumption of the linear model.
 
-```{r cars}
-summary(cars)
+# Data Exploration
+
+To model the share of democratic votes in a given state and year, we have the following variables awailable.
+
+* `dvote` - the outcome variable, the Democratic party candidate's share of the vote in the given state and year
+* `year` - specifies the year of the election
+* `state` - specifies the state of the corresponding outcome variable
+* `evotes` - specifies the number of electoral votes for a given state
+
+Additionally we have the nationwide variables
+
+* `dvote_poll` - the nationwide Democratic party candidate's share of the vote in the September poll
+* `dapprove_inc` - the nationwide presidential approval in the July poll (negative values for Republic presidents and positive values for Democratic presidents)
+* `dapprove_presinc` - same as `dapprove_inc` but equals 0 if the current president is not running for a re-election
+* `gnp_growth_inc` - the statewide GNP growth in the second quarter (positive values if the incumbent president is a Democrat and negative if the incumbent president is a Republican)
+
+Furthermore we have the state wide variables
+
+* `dvote_last` - the Democratic party candidate's share of the last election given state and year (as a deviation from corresponding national vote)
+* `dvote_last2` - the Democratic party candidate's share two elections ago given state and year (as a deviation from corresponding national vote)
+* `home_state` - the home state of the presidential candidate (+1 if the corresponding state is the home state of the Democratic candidate and -1 if the corresponding state is the home state of the Republican candidate)
+* `home_state_vice` - the home state of the vice-presidential candidate (+1 if the corresponding state is the home state of the Democratic vice candidate and -1 if the corresponding state is the home state of the Republican vice candidate)
+* `dmajor_leg` - the democratic majority in the state legislature (positive values if the Democrats had a majority compared to the Republicans and negative values if the Republicans had a majority compared to the Democrats)
+* `econ_growth_inc` - the state economic growth in the past year (positive values if the incumbent president is a Democrat and negative if the incumbent president is a Republican)
+* `state_ideology` - a measure for the state ideology (same value in every year) (positive values if ideology is more Democratic and negative values if ideology is more Republic)
+* `ideology_comp` - ideological compatibility of a given state with the candidates 
+* `cath_1960` - proportion of Catholics in 1960 compared to U.S. average and 0 in any other year (1960 had a Catholic presidential candidate)
+
+Lastly we have the regional variables 
+
+* `south` - south indicator
+* `south_1964` - south indicator in 1964
+* `deep_south_1964` - deep south indicator in 1964
+* `new_england_1964` - New England indicator in 1964
+* `new_england_1972` - New England indicator in 1972
+* `west_1976` - west indicator in 1976
+
+TBD: Maybe dont mention evotes if never use it.
+
+The year 1964 was special because the Democratic candidate was able to completely dominate the elections, also in the south but with an exception of the deep south states. The other regional variables (`south`, `new_england_1972`, `west_1976`) are there to adjust for known and expected outliers (very unusual results in certain states and years) instead of removing them from the data.
+
+In our analysis we will treat year, state as well as all the regional variables as factors, while the remaining variables will be treated as numerical. Furthermore we will add an additional factor `region` to the dataset dividing the states in the regions "Northeast", "South", "Midwest" and "West.
+
+```{r preprocessing}
+library("readr") # to load data
+library("tidyverse")
+data <- read_table("4_US_elections.txt")
+data = data %>% select(-constant) # remove manually added intercept
+# change mentioned variables to factors
+data = data %>% 
+  mutate(year = as.factor(year),
+                       state = as.factor(state), 
+                       r1 = as.factor(r1), 
+                       r2 = as.factor(r2), 
+                       r3 = as.factor(r3), 
+                       r4 = as.factor(r4), 
+                       r5 = as.factor(r5), 
+                       r6 = as.factor(r6), )
+
+# rename the variables
+data = data %>% 
+  rename(dvote = Dvote,
+         dvote_poll = n1,
+         dapprove_inc = n2,
+         dapprove_presinc = n3,
+         gnp_growth_inc = n4,
+         dvote_last = s1,
+         dvote_last2 = s2,
+         home_state = s3,
+         home_state_vice = s4,
+         dmajor_leg = s5,
+         econ_growth_inc = s6,
+         state_ideology = s7,
+         ideology_comp = s8,
+         cath_1960 = s9,
+         south = r1,
+         south_1964 = r2,
+         deep_south_1964 = r3,
+         new_england_1964 = r4,
+         new_england_1972 = r5,
+         west_1976 = r6)
+
+# create a region variable
+northeast = c(7, 8, 19, 20, 21, 29, 30, 32, 38, 39, 45, 48)
+south = c(1, 4, 9, 10, 17, 18, 24, 33, 36, 40, 42, 43, 46)
+midwest = c(13, 14, 15, 16, 22, 23, 25, 27, 34, 35, 41, 49)
+west = c(2, 3, 5, 6, 11, 12, 26, 28, 31, 37, 44, 47, 50)
+
+data$region <- ifelse(data$state %in% northeast, "northeast",
+                      ifelse(data$state %in% south, "south",
+                             ifelse(data$state %in% midwest, "midwest",
+                                    ifelse(data$state %in% west, "west", NA))))
+data = data %>% mutate(region = as.factor(region))
 ```
 
-## Including Plots
+# Linear Model
 
-You can also embed plots, for example:
+For our first model, we certainly want to include `state` to predict `dvote`. Since `state` is a factor variable, we can't include the factor `region` to the same model since it would make the design matrix singular. The same goes for `state_ideology`, which does not change over the years and hence is the same number in each for two observations from the same state. Similarly, we want to include the factor `year` in our first model, which will not allow us to use any of the nationwide variables, since a nationwide variable takes the same value for all observations of one year.
+So our first model uses the predictors `dvote_last`, `dvote_last2`, `home_state`, `home_state_vice`, `dmajor_leg`, `econ_growth_inc`, `ideology_comp`, `cath_1960`, `south`, `south_1964`, `deep_south_1964`, `new_england_1964`, `new_england_1972` and `west_1976` to model the response `dvote`.
 
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
+# Linear Mixed Model
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

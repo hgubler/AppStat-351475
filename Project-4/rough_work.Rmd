@@ -109,7 +109,7 @@ data = data %>% mutate(region = as.factor(region))
 Fit a first model excluding the inc and presinc variables and region.
 ```{r firstmodel}
 library(tidyverse)
-m0 = lm(dvote ~ . - evotes - region, data = data)
+m0 = lm(dvote ~ . - evotes - region , data = data)
 ```
 
 Search for grouping in the data. Grouping in year or in region?
