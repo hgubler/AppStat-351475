@@ -56,11 +56,14 @@ TBD: Maybe dont mention evotes if never use it.
 
 The year 1964 was special because the Democratic candidate was able to completely dominate the elections, also in the south but with an exception of the deep south states. The other regional variables (`south`, `new_england_1972`, `west_1976`) are there to adjust for known and expected outliers (very unusual results in certain states and years) instead of removing them from the data.
 
-In our analysis we will treat year, state as well as all the regional variables as factors, while the remaining variables will be treated as numerical. Furthermore we will add an additional factor `region` to the dataset dividing the states in the regions "Northeast", "South", "Midwest" and "West.
+In our analysis we will treat year, state as well as all the regional variables as factors, while the remaining variables will be treated as numerical. Furthermore we will add an additional factor `region` to the dataset dividing the states in the regions "Northeast", "South", "Midwest" and "West. Lastly we remove all the observation with missing values from our data.
 
 ```{r preprocessing}
 library("readr") # to load data
 library("tidyverse")
+library("ggpubr") # for ggarrange
+library("car") # type 2 anova
+library("knitr") # to print tables
 data <- read_table("4_US_elections.txt")
 data = data %>% select(-constant) # remove manually added intercept
 # change mentioned variables to factors
@@ -108,12 +111,61 @@ data$region <- ifelse(data$state %in% northeast, "northeast",
                              ifelse(data$state %in% midwest, "midwest",
                                     ifelse(data$state %in% west, "west", NA))))
 data = data %>% mutate(region = as.factor(region))
+data = na.omit(data)
 ```
 
 # Linear Model
 
-For our first model, we certainly want to include `state` to predict `dvote`. Since `state` is a factor variable, we can't include the factor `region` to the same model since it would make the design matrix singular. The same goes for `state_ideology`, which does not change over the years and hence is the same number in each for two observations from the same state. Similarly, we want to include the factor `year` in our first model, which will not allow us to use any of the nationwide variables, since a nationwide variable takes the same value for all observations of one year.
-So our first model uses the predictors `dvote_last`, `dvote_last2`, `home_state`, `home_state_vice`, `dmajor_leg`, `econ_growth_inc`, `ideology_comp`, `cath_1960`, `south`, `south_1964`, `deep_south_1964`, `new_england_1964`, `new_england_1972` and `west_1976` to model the response `dvote`.
+For our first linear model, we certainly want to include `state` to predict `dvote`. Since `state` is a factor variable, we can't include the factor `region` to the same model since it would make the design matrix singular. The same goes for `state_ideology`, which does not change over the years and hence is the same number in each for two observations from the same state. Similarly, we want to include the factor `year` in our first model, which will not allow us to use any of the nationwide variables, since a nationwide variable takes the same value for all observations of one year.
+So our linear model uses the predictors `dvote_last`, `dvote_last2`, `home_state`, `home_state_vice`, `dmajor_leg`, `econ_growth_inc`, `ideology_comp`, `cath_1960`, `south`, `south_1964`, `deep_south_1964`, `new_england_1964`, `new_england_1972` and `west_1976` to model the response `dvote`. First we look at the type 2 anova test for our linear model, testing for each coefficient the full model vs the model with all predictors but not the one corresponding to the specific coefficient.
+
+```{r anova}
+m0 = lm(dvote ~ . - evotes - region - state_ideology - dvote_poll - dapprove_inc
+        - dapprove_presinc - gnp_growth_inc, data = data)
+anova = Anova(m0, type = 2)
+kable(anova)
+
+```
+
+
+Next we look at the residuals vs fitted values and normal Q-Q plots of our linear model.
+
+```{r linearmodel, fig.width=7, fig.height=3.5, fig.cap="Residuals vs fitted values (left) and normal Q-Q plot (right) of our linear model."}
+# create a data frame that contains residuals, standardized residuals and fitted values for plots
+data_res = data
+data_res$residuals = resid(m0)
+data_res$std_residuals = rstandard(m0)
+data_res$fitted = m0$fitted.values
+# create residuals vs fitted values plot
+res_vs_fit = ggplot(data_res, aes(x = fitted, y = residuals)) + 
+  geom_point() + 
+  labs(x = "fitted values", y = "residuals") + 
+  ggtitle("Residuals vs Fitted Values")
+# create qq plot
+qq_plot = ggplot(data_res, aes(sample = std_residuals)) +
+  stat_qq() + 
+  stat_qq_line() + 
+  labs(x = "theoretical quantiles", y = "standardized residuals quantiles") + 
+  ggtitle("Normal Q-Q Plot")
+# plot residuals vs fitted values (left) and qqplot (right)
+ggarrange(res_vs_fit, qq_plot, ncol = 2, nrow = 1)
+```
+The normal Q-Q plot looks fine with only slight abbreviations in the tails, so we may assume that the normality assumption holds. Additionally we do not observe a clear pattern in the residuals vs fitted values plot, suggesting that the independence assumption could hold. However it is still possible that we have dependence of observations inside specific groups, for example observations from the same year or the same region could influence each other.
+
+```{r onelvlgroup, fig.height=3.5, fig.width=9, fig.cap="Boxplots of the residuals of our linear model grouped by year (left) and grouped by region (right)."}
+# create boxplots of residuals grouped by region
+year_res_plot = ggplot(mapping = aes(y = residuals, col = year), data = data_res) + 
+  geom_boxplot() + 
+  ggtitle("Boxplots of Residuals by Year")
+# create boxplots of residuals grouped by region
+region_res_plot = ggplot(mapping = aes(y = residuals, col = region), data = data_res) +
+  geom_boxplot() + 
+    ggtitle("Boxplots of Residuals by Region")
+# arrange the two plots in a 1x2 grid
+ggarrange(year_res_plot, region_res_plot, nrow = 1, ncol = 2)
+```
+
+The residuals still look acceptable as we do not observe groups that substantially exceed the region around zero. One more 
 
 # Linear Mixed Model
 
