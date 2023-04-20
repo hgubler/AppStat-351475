@@ -1,8 +1,10 @@
 ---
-title: "Project-4"
+title: "Project-4: U.S Presidential Elections"
 author: "Hannes"
 date: "2023-04-05"
-output: bookdown::html_document2
+output: 
+  bookdown::html_document2:
+    toc: true
 ---
 
 ```{r setup, include=FALSE}
@@ -117,25 +119,29 @@ data = na.omit(data)
 # Linear Model
 
 For our first linear model, we certainly want to include `state` to predict `dvote`. Since `state` is a factor variable, we can't include the factor `region` to the same model since it would make the design matrix singular. The same goes for `state_ideology`, which does not change over the years and hence is the same number in each for two observations from the same state. Similarly, we want to include the factor `year` in our first model, which will not allow us to use any of the nationwide variables, since a nationwide variable takes the same value for all observations of one year.
-So our linear model uses the predictors `dvote_last`, `dvote_last2`, `home_state`, `home_state_vice`, `dmajor_leg`, `econ_growth_inc`, `ideology_comp`, `cath_1960`, `south`, `south_1964`, `deep_south_1964`, `new_england_1964`, `new_england_1972` and `west_1976` to model the response `dvote`. First we look at the type 2 anova test for our linear model, testing for each coefficient the full model vs the model with all predictors but not the one corresponding to the specific coefficient.
+So our linear model uses the predictors `dvote_last`, `dvote_last2`, `home_state`, `home_state_vice`, `dmajor_leg`, `econ_growth_inc`, `ideology_comp`, `cath_1960`, `south`, `south_1964`, `deep_south_1964`, `new_england_1964`, `new_england_1972` and `west_1976` to model the response `dvote`. First we look at the type 2 anova test for our linear model, which compares for each coefficient the full model vs the model with all predictors but not the one corresponding to the specific coefficient.
 
 ```{r anova}
 m0 = lm(dvote ~ . - evotes - region - state_ideology - dvote_poll - dapprove_inc
         - dapprove_presinc - gnp_growth_inc, data = data)
+# perform type 2 anova and print results in a table
 anova = Anova(m0, type = 2)
-kable(anova)
-
+kable(anova[1:16, ], digits = 3, caption = "Type 2 anova for the linear model, comparing for each coefficient the full model with the full model excluding the predictor from that coefficient.")
 ```
-
+Except `ideology_comp` all the coefficients seem to be important, so we keep all the predictors from before but remove `ideology_comp` from our model.
 
 Next we look at the residuals vs fitted values and normal Q-Q plots of our linear model.
 
-```{r linearmodel, fig.width=7, fig.height=3.5, fig.cap="Residuals vs fitted values (left) and normal Q-Q plot (right) of our linear model."}
+```{r diagnostics, fig.width=7, fig.height=3.5, fig.cap="Residuals vs fitted values (left) and normal Q-Q plot (right) of our linear model."}
+# fit the same model as before but exclude ideology_comp
+m1 = lm(dvote ~ . - evotes - region - state_ideology - dvote_poll - dapprove_inc
+        - dapprove_presinc - gnp_growth_inc - ideology_comp, data = data)
 # create a data frame that contains residuals, standardized residuals and fitted values for plots
+
 data_res = data
-data_res$residuals = resid(m0)
-data_res$std_residuals = rstandard(m0)
-data_res$fitted = m0$fitted.values
+data_res$residuals = resid(m1)
+data_res$std_residuals = rstandard(m1)
+data_res$fitted = m1$fitted.values
 # create residuals vs fitted values plot
 res_vs_fit = ggplot(data_res, aes(x = fitted, y = residuals)) + 
   geom_point() + 
@@ -150,7 +156,7 @@ qq_plot = ggplot(data_res, aes(sample = std_residuals)) +
 # plot residuals vs fitted values (left) and qqplot (right)
 ggarrange(res_vs_fit, qq_plot, ncol = 2, nrow = 1)
 ```
-The normal Q-Q plot looks fine with only slight abbreviations in the tails, so we may assume that the normality assumption holds. Additionally we do not observe a clear pattern in the residuals vs fitted values plot, suggesting that the independence assumption could hold. However it is still possible that we have dependence of observations inside specific groups, for example observations from the same year or the same region could influence each other.
+The normal Q-Q plot looks fine with only slight abbreviations in the tails, so the normality looks passable. Additionally we do not observe a clear pattern in the residuals vs fitted values plot, suggesting that the independence assumption could hold. However it is still possible that we have dependence of observations inside specific groups, for example observations from the same year or the same region could influence each other.
 
 ```{r onelvlgroup, fig.height=3.5, fig.width=9, fig.cap="Boxplots of the residuals of our linear model grouped by year (left) and grouped by region (right)."}
 # create boxplots of residuals grouped by region
@@ -165,7 +171,31 @@ region_res_plot = ggplot(mapping = aes(y = residuals, col = region), data = data
 ggarrange(year_res_plot, region_res_plot, nrow = 1, ncol = 2)
 ```
 
-The residuals still look acceptable as we do not observe groups that substantially exceed the region around zero. One more 
+The residuals still look acceptable as we do not observe groups that substantially exceed the region around zero. Another point to consider is the dependence of observations from the same year and the same region. Possibly in a specific year, states in the same region tend to influence each other.
+
+```{r twolvlgroup, fig.height=5, fig.width=9, fig.cap="For each region the corresponding plot shows boxplots of the residuals corresponding to the same year."}
+data_northeast = data_res[data_res$region == "northeast", ]
+data_south = data_res[data_res$region == "south", ]
+data_midwest = data_res[data_res$region == "midwest", ]
+data_west = data_res[data_res$region == "west", ]
+northeast_res_plot = ggplot(mapping=aes(y=residuals, col=year), data = data_northeast) +
+  geom_boxplot() + 
+  ggtitle("Northeast Residuals by Year")
+south_res_plot = ggplot(mapping=aes(y=residuals, col=year), data = data_south) +
+  geom_boxplot() +
+  ggtitle("South Residuals by Year")
+midwest_res_plot = ggplot(mapping=aes(y=residuals, col=year), data = data_midwest) +
+  geom_boxplot() +
+  ggtitle("Midwest Residuals by Year")
+west_res_plot = ggplot(mapping=aes(y=residuals, col=year), data = data_west) +
+  geom_boxplot() +
+  ggtitle("West Residuals by Year")
+#grid.arrange(northeast_res_plot, south_res_plot, midwest_res_plot, west_res_plot, ncol = 2)
+ggarrange(northeast_res_plot, south_res_plot, midwest_res_plot, west_res_plot, 
+          ncol = 2, nrow = 2, common.legend = TRUE, legend = "right")
+```
+
+Now we observe a grouping effect. It looks like the distribution of the residuals within one region from different years differ from each other. This suggests that observations within one region and year may be dependent, violating our assumptions for the linear model. Therefore it could be useful to model the data with a linear mixed model, where we can allow for dependency between certain observations.
 
 # Linear Mixed Model
 
