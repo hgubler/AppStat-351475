@@ -221,7 +221,7 @@ The Linear Mixed Model is an extension of the linear model. We define it as
 $$
 Y = X\beta + Z b + \epsilon, \quad b \sim N_q(0,C), \quad \epsilon \sim N_n(0, \sigma^2I_n)
 $$
-where $X \in \mathbb{R}^{n\times p}$ and $Z \in \mathbb{R}^{n\times q}$ are known design matrices, $\beta \in \mathbb{R}^p$ are fixed parameters (effects), $b \in \mathbb{R}^q$ are random effects (independent of $\epsilon$) and $Y \in \mathbb{R}^n$ is the response. So the parameters in a Linear Mixed model are $\beta, C$ and $\sigma^2$. They are estimated either by using maximum likelihood (ML) or restricted maximum likelihood (REML). The inclusion of the random effect $b$ in the model allows for the modeling of the correlation structure among the observations. Specifically, the random effect $b$ captures the deviation of the observations within a group from the overall population mean (fixed effect). Moreover the covariance matrix $C$ of $b$ can allow for correlation between different groups.
+where $X \in \mathbb{R}^{n\times p}$ and $Z \in \mathbb{R}^{n\times q}$ are known design matrices, $\beta \in \mathbb{R}^p$ are fixed parameters (effects), $b \in \mathbb{R}^q$ are random effects (independent of $\epsilon$) and $Y \in \mathbb{R}^n$ is the response. So the parameters in a Linear Mixed model are $\beta, C$ and $\sigma^2$. They are estimated either by using maximum likelihood (ML) or restricted maximum likelihood (REML). In our analysis we use the ML method. The inclusion of the random effect $b$ in the model allows for the modeling of the correlation structure among the observations. Specifically, the random effect $b$ captures the deviation of the observations within a group from the overall population mean (fixed effect). Moreover the covariance matrix $C$ of $b$ can allow for correlation between different groups.
 
 As observed in Figure (\@ref(fig:twolvlgroup)) we would like to allow for dependency between observations from the same year and region. So we add a random effect of the interaction between `year` and `region` to our linear model from the section before. Furthermore we also add a random effect to `year` itself as it intuitively makes sense to allow for correlation of observations from the same year. In the R syntax, we add the term `(1|year/region)` to our linear model and fit it with the lmer function from the lme4 library. We have `(1|year/region) = (1|year) + (1|year:region)`, which adds a random intercept for `year` and regions within years `region:year` to our model. We then look at the same plot as in Figure (\@ref(fig:twolvlgroup)) but take the residuals from the mixed model to see if we solved the issue.
 
@@ -236,7 +236,9 @@ mixed_m1 = lmer(dvote ~ .
                 - dapprove_presinc 
                 - gnp_growth_inc 
                 - ideology_comp 
+                - year
                 + (1|year/region), 
+                REML = FALSE,
                 data = data)
 # create dataframes with residuals for each to replicate plot from before 
 # with residuals grouped by year and region
@@ -276,9 +278,34 @@ p = \frac{1}{n}\sum_{i=1}^n \mathbb{1}_{\{\text{lr}_{\text{boot}}^i > \text{lr}\
 $$
 
 ```{r parametric bootstrap}
-load("Project-4/Data/p_value.RData")
-print(p_value)
+load("Data/p_value.RData")
+p = as.numeric(p_value)
+print(p)
 ```
 
-We now perform these calculations with n = 1000 and get a p-value of 
+When we perform these calculations with $n = 1000 $ we get a p-value of $0.783$, suggesting that it is not necessary to include `years` as a random effect in our model and hence we can discard part of the random effect structure. So we proceed with the model with a random effect only for the interaction of `years` with `region`.
 
+```{r}
+# create model without random intercept for year
+mixed_m0 <- lmer(dvote ~ 
+                   + dvote_last + dvote_last2 + home_state + home_state_vice+dmajor_leg+
+                   econ_growth_inc+cath_1960+south+south_1964+deep_south_1964+
+                   new_england_1964+new_england_1972+west_1976 +
+                   (1|year:region) + state + year, 
+                REML = FALSE,
+                data = data)
+
+Anova(mixed_m0, type = 2, data = data)
+```
+
+# Parameter interpretation
+
+In this section we will examine the coefficients (fixed effects) of our final model as well as interpret some of the most important parameters. The following table contains the values of some selected coefficients.
+
+```{r coeftable}
+coef_table = as.data.frame(summary(mixed_m0)$coefficients)
+coef_table = coef_table[c(1:14, 18, 67), ]
+```
+
+
+# Conclusion

@@ -66,5 +66,5 @@ for(i in 1:n) {
 p = mean(lrstats > lrstat)
 print(p)
 # export the p_value as a dataframe
-p_value = as.data.frame(p)
-save(p_value, file = "p_value.RData")
+# p_value = as.data.frame(p)
+# save(p_value, file = "p_value.RData")
