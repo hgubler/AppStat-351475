@@ -17,9 +17,9 @@ The U.S. Presidential elections are one of the most significant political events
 
 In this report, we explore the data on U.S. Presidential elections between 1948 and 1992, focusing on the two-party vote for the Democratic and Republican candidates in each state and year. We try to model the share of democratic votes in a given state and year first with a linear model and later with a linear mixed model. By analyzing the data, we aim to identify crucial factors that lead to electoral success in the United States. Furthermore we investigate how we can apply linear mixed model to the data to overcome the independence assumption of the linear model.
 
-# Data Exploration
+# Data Explanation
 
-To model the share of democratic votes in a given state and year, we have the following variables awailable.
+To model the share of democratic votes in a given state and year, we have the following variables available
 
 * `dvote` - the outcome variable, the Democratic party candidate's share of the vote in the given state and year
 * `year` - specifies the year of the election
@@ -66,6 +66,7 @@ library("tidyverse")
 library("ggpubr") # for ggarrange
 library("car") # type 2 anova
 library("knitr") # to print tables
+library("lme4") # for mixed models
 data <- read_table("4_US_elections.txt")
 data = data %>% select(-constant) # remove manually added intercept
 # change mentioned variables to factors
@@ -198,4 +199,39 @@ ggarrange(northeast_res_plot, south_res_plot, midwest_res_plot, west_res_plot,
 Now we observe a grouping effect. It looks like the distribution of the residuals within one region from different years differ from each other. This suggests that observations within one region and year may be dependent, violating our assumptions for the linear model. Therefore it could be useful to model the data with a linear mixed model, where we can allow for dependency between certain observations.
 
 # Linear Mixed Model
+
+The Linear Mixed Model is an extension of the linear model. We define it as
+$$
+Y = X\beta + Z b + \epsilon, \quad b \sim N_q(0,C), \quad \epsilon \sim N_n(0, \sigma^2I_n)
+$$
+where $X \in \mathbb{R}^{n\times p}$ and $Z \in \mathbb{R}^{n\times q}$ are known design matrices, $\beta \in \mathbb{R}^p$ are fixed parameters (effects), $b \in \mathbb{R}^q$ are random effects (independent of $\epsilon$) and $Y \in \mathbb{R}^n$ is the response. So the parameters in a Linear Mixed model are $\beta, C$ and $\sigma^2$. They are estimated either by using maximum likelihood (ML) or restricted maximum likelihood (REML). The inclusion of the random effect $b$ in the model allows for the modeling of the correlation structure among the observations. Specifically, the random effect $b$ captures the deviation of the observations within a group from the overall population mean (fixed effect). Moreover the covariance matrix $C$ of $b$ can allow for correlation between different groups.
+
+As observed in Figure (\@ref(fig:twolvlgroup)) we would like to allow for dependency between observations from the same year and region. So we add a random effect of the interaction between `year` and `region` to our linear model from the section before. Furthermore we also add a random effect to `year` itself as it intuitively makes sense to allow for correlation of observations from the same year. In the R syntax, we add the term `(1|year/region)` to our linear model and fit it with the lmer function from the lme4 library. We have `(1|year/region) = (1|year) + (1|year:region)`, which adds a random intercept for `year` and regions within years `region:year` to our model.
+
+```{r mixedm0}
+mixed_m0 = lmer(dvote ~ . -  evotes - region - year + (1|year/region), data = data)
+data_res_mixed = data_res
+data_res_mixed$residuals = resid(mixed_m0)
+data_northeast_mixed = data_res_mixed[data_res_mixed$region == "northeast", ]
+data_south_mixed = data_res_mixed[data_res_mixed$region == "south", ]
+data_midwest_mixed = data_res_mixed[data_res_mixed$region == "midwest", ]
+data_west_mixed = data_res_mixed[data_res_mixed$region == "west", ]
+northeast_res_plot = ggplot(mapping=aes(y=residuals, col=year), data = data_northeast_mixed) +
+  geom_boxplot() + 
+  ggtitle("Northeast Residuals by Year")
+south_res_plot = ggplot(mapping=aes(y=residuals, col=year), data = data_south_mixed) +
+  geom_boxplot() +
+  ggtitle("South Residuals by Year")
+midwest_res_plot = ggplot(mapping=aes(y=residuals, col=year), data = data_midwest_mixed) +
+  geom_boxplot() +
+  ggtitle("Midwest Residuals by Year")
+west_res_plot = ggplot(mapping=aes(y=residuals, col=year), data = data_west_mixed) +
+  geom_boxplot() +
+  ggtitle("West Residuals by Year")
+#grid.arrange(northeast_res_plot, south_res_plot, midwest_res_plot, west_res_plot, ncol = 2)
+ggarrange(northeast_res_plot, south_res_plot, midwest_res_plot, west_res_plot, 
+          ncol = 2, nrow = 2, common.legend = TRUE, legend = "right")
+```
+
+
 
