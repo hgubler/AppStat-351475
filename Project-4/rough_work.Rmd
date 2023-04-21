@@ -55,7 +55,7 @@ We will treat year, state as well as all the regional variables as factor variab
 ```{r preprocessing}
 library("readr") # to load data
 library("tidyverse")
-data <- read_table("4_US_elections.txt")
+data <- read_table("Data/4_US_elections.txt")
 data = data %>% select(-constant) # remove manually added intercept
 # change mentioned variables to factors
 data = data %>% 
