@@ -584,7 +584,7 @@ p = \frac{1}{n}\sum_{i=1}^n \mathbb{1}_{\{\text{lr}_{\text{boot}}^i &gt; \text{l
 </ul>
 <p>When we perform these calculations with <span class="math inline">\(n = 1000\)</span> we get a p-value of <span class="math inline">\(0.598\)</span>, suggesting that it is not necessary to include <code>years</code> as a random effect in our model and hence we can discard part of the random effect structure. So we proceed with the model with a random effect only for the interaction of <code>years</code> with <code>region</code>. For the fixed effects, we look at the type two anova test. Since we only test for fixed effects, the likelihood ratio test follows chi square distribution asymptotically where we can determine the degrees of freedom as usual. Note that we fit our linear mixed model using ML such that we can make use of the likelihood ratio test.</p>
 <table>
-<caption><span id="tab:unnamed-chunk-1">Table 4.1: </span>Type 2 anova for the fixed effects in our linear mixed model, comparing for each coefficient the full model with the full model excluding the predictor from that coefficient.</caption>
+<caption><span id="tab:anova2">Table 4.1: </span>Type 2 anova for the fixed effects in our linear mixed model, comparing for each coefficient the full model with the full model excluding the predictor from that coefficient.</caption>
 <thead>
 <tr class="header">
 <th align="left"></th>
@@ -704,13 +704,113 @@ p = \frac{1}{n}\sum_{i=1}^n \mathbb{1}_{\{\text{lr}_{\text{boot}}^i &gt; \text{l
 </tr>
 </tbody>
 </table>
+<p>According to the type 2 anova test, only <code>dapprove_inc</code> seems to be not statistically significant. <code>dapprove_presinc</code> is exactly the same as <code>dapprove_inc</code> if the incumbent president is running for a re-election and zero else, so it seems that the support for the incumbent president does not matter to predict <code>dvote</code> if he is not running for a re-election. Thus, as a last step, we remove <code>dapprove_inc</code> from our linear mixed model.</p>
+<p>To conclude, our last model now consists of the fixed effects present in Table (<a href="#tab:anova2">4.1</a>), except <code>dapprove_inc</code>, and a random effect for the interaction between <code>year</code> and <code>region</code>.</p>
 </div>
 <div id="parameter-interpretation" class="section level1" number="5">
 <h1><span class="header-section-number">5</span> Parameter interpretation</h1>
 <p>In this section we will examine the coefficients (fixed effects) of our final model as well as interpret some of the most important parameters. The following table contains the values of some selected coefficients.</p>
+<table>
+<caption><span id="tab:coeftable">Table 5.1: </span>Estimated coefficients (fixed effects) of the final linear mixed model.</caption>
+<thead>
+<tr class="header">
+<th align="left"></th>
+<th align="right">Estimate</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">state5</td>
+<td align="right">0.034</td>
+</tr>
+<tr class="even">
+<td align="left">dvote_poll</td>
+<td align="right">0.450</td>
+</tr>
+<tr class="odd">
+<td align="left">dapprove_presinc</td>
+<td align="right">0.030</td>
+</tr>
+<tr class="even">
+<td align="left">gnp_growth_inc</td>
+<td align="right">0.024</td>
+</tr>
+<tr class="odd">
+<td align="left">dvote_last</td>
+<td align="right">0.285</td>
+</tr>
+<tr class="even">
+<td align="left">dvote_last2</td>
+<td align="right">0.194</td>
+</tr>
+<tr class="odd">
+<td align="left">home_state</td>
+<td align="right">0.038</td>
+</tr>
+<tr class="even">
+<td align="left">home_state_vice</td>
+<td align="right">0.020</td>
+</tr>
+<tr class="odd">
+<td align="left">dmajor_leg</td>
+<td align="right">0.049</td>
+</tr>
+<tr class="even">
+<td align="left">econ_growth_inc</td>
+<td align="right">0.001</td>
+</tr>
+<tr class="odd">
+<td align="left">cath_1960</td>
+<td align="right">0.133</td>
+</tr>
+<tr class="even">
+<td align="left">south</td>
+<td align="right">0.035</td>
+</tr>
+<tr class="odd">
+<td align="left">south_1964</td>
+<td align="right">0.086</td>
+</tr>
+<tr class="even">
+<td align="left">deep_south_1964</td>
+<td align="right">0.185</td>
+</tr>
+<tr class="odd">
+<td align="left">new_england_1964</td>
+<td align="right">0.055</td>
+</tr>
+<tr class="even">
+<td align="left">new_england_1972</td>
+<td align="right">0.053</td>
+</tr>
+<tr class="odd">
+<td align="left">west_1976</td>
+<td align="right">0.042</td>
+</tr>
+</tbody>
+</table>
+<p>The interpretation for these coefficients is not always straightforward. Therefore we look at some examples for some interesting coefficients.</p>
+<ul>
+<li>The Democratic party candidate’s share increases by 3.4 % if we look at the state California (state 5) instead of Alabama (state 0, base level of <code>state</code>).</li>
+<li>The Democratic party candidate’s share increases by 4.33 % (0.1 * 43,3 %) if the support for the democratic candidate in the September poll <code>d_vote_poll</code> increases by 10 %.</li>
+<li>The interpretation of the coefficient <code>dapprove_presinc</code> is a bit tricky. We divide it in two cases.
+<ul>
+<li>If the incumbent president is a Democrat and running for a re-election, his share increase
+by 0.3 % (0.1 * 3 %) if the support in the July poll for the incumbent
+president <code>dapprove_presinc</code> increases by 10 %.</li>
+<li>If the incumbent president is a Republician and running for a re-election, the Democratic candidate’s share decreases by 0.3 % (0.1 * 3 %) if the support in the July poll for the incumbent president <code>dapprove_presinc</code> increases by 10%.</li>
+</ul></li>
+<li>As before we split the interpretation of <code>home_state</code> in two cases.
+<ul>
+<li>The Democratic party candidate’s share increases by 3.8 % in his home state.</li>
+<li>The Democratic party candidate’s share decreases by 3.8 % in the home state of the Republican candidate.</li>
+</ul></li>
+<li>The Democratic party candidate’s share increases by 18.5 % in the deep south states if we look at the year 1964 compared to a different year.</li>
+</ul>
 </div>
 <div id="conclusion" class="section level1" number="6">
 <h1><span class="header-section-number">6</span> Conclusion</h1>
+<p>In this report we built a statistical model to describe the US presidential elections between 1948 and 1992. We started by using a linear model and then moved to a linear mixed model, with a random effect for the interaction between <code>year</code> and <code>region</code>. The reason why a linear mixed model might be better in this case is that we can allow for dependence between certain observation. Intuitively, it seems reasonable that observations for the Democratic candidate’s share in certain states from the same year influence each other if they are in the same region. A possible explanation for that could be that the states from the same region have a lot more interaction with each other and possibly even share the same newspapers, which can influence the peoples voting preferences.</p>
 </div>
 
 

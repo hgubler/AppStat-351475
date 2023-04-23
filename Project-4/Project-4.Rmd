@@ -281,7 +281,7 @@ $$
 
 When we perform these calculations with $n = 1000$ we get a p-value of $0.598$, suggesting that it is not necessary to include `years` as a random effect in our model and hence we can discard part of the random effect structure. So we proceed with the model with a random effect only for the interaction of `years` with `region`. For the fixed effects, we look at the type two anova test. Since we only test for fixed effects, the likelihood ratio test follows chi square distribution asymptotically where we can determine the degrees of freedom as usual. Note that we fit our linear mixed model using ML such that we can make use of the likelihood ratio test.
 
-```{r}
+```{r anova2}
 # create model without random intercept for year
 mixed_m0 = lmer(dvote ~ 
                 + state 
@@ -308,15 +308,59 @@ mixed_m0 = lmer(dvote ~
 anova2 = Anova(mixed_m0, type = 2, data = data)
 kable(anova2, digits = 3, caption = "Type 2 anova for the fixed effects in our linear mixed model, comparing for each coefficient the full model with the full model excluding the predictor from that coefficient.")
 ```
+According to the type 2 anova test, only `dapprove_inc` seems to be not statistically significant. `dapprove_presinc` is exactly the same as `dapprove_inc` if the incumbent president is running for a re-election and zero else, so it seems that the support for the incumbent president does not matter to predict `dvote` if he is not running for a re-election. Thus, as a last step, we remove `dapprove_inc` from our linear mixed model.
+
+To conclude, our last model now consists of the fixed effects present in Table (\@ref(tab:anova2)), except `dapprove_inc`, and a random effect for the interaction between `year` and `region`.
 
 # Parameter interpretation
 
 In this section we will examine the coefficients (fixed effects) of our final model as well as interpret some of the most important parameters. The following table contains the values of some selected coefficients.
 
 ```{r coeftable}
-coef_table = as.data.frame(summary(mixed_m0)$coefficients)
-coef_table = coef_table[c(1:14, 18, 67), ]
+mixed_m2 = lmer(dvote ~ 
+                + state 
+                + dvote_poll 
+                + dapprove_presinc 
+                + gnp_growth_inc 
+                + dvote_last 
+                + dvote_last2 
+                + home_state 
+                + home_state_vice 
+                + dmajor_leg 
+                + econ_growth_inc 
+                + cath_1960 
+                + south 
+                + south_1964 
+                + deep_south_1964 
+                + new_england_1964 
+                + new_england_1972 
+                + west_1976 
+                + (1|year:region),
+                data = data, 
+                REML = FALSE)
+coef_table = as.data.frame(summary(mixed_m2)$coefficients)
+coef_table = coef_table[c(5, 51:66), ]
+coef_table = coef_table %>%
+  select(-"Std. Error", -"t value")
+rownames(coef_table)[c(12:17)] = c("south", "south_1964", "deep_south_1964", "new_england_1964", "new_england_1972", "west_1976")
+kable(coef_table, digits = 3, caption = "Estimated coefficients (fixed effects) of the final linear mixed model.")
 ```
+
+The interpretation for these coefficients is not always straightforward. Therefore we look at some examples for some interesting coefficients.
+
+* The Democratic party candidate's share increases by 3.4 % if we look at the state California (state 5) instead of Alabama (state 0, base level of `state`).
+* The Democratic party candidate's share increases by 4.33 % (0.1 * 43,3 %) if the support for the democratic candidate in the September poll `d_vote_poll` increases by 10 %.
+* The interpretation of the coefficient `dapprove_presinc` is a bit tricky. We divide it in two cases.
+  - If the incumbent president is a Democrat and running for a re-election, his share increase 
+  by 0.3 % (0.1 * 3 %) if the support in the July poll for the incumbent 
+  president `dapprove_presinc` increases by 10 %.
+  - If the incumbent president is a Republician and running for a re-election, the Democratic candidate's share decreases by 0.3 % (0.1 * 3 %) if the support in the July poll for the incumbent president `dapprove_presinc` increases by 10%.
+* As before we split the interpretation of `home_state` in two cases.
+  - The Democratic party candidate's share increases by 3.8 % in his home state.
+  - The Democratic party candidate's share decreases by 3.8 % in the home state of the Republican candidate.
+* The Democratic party candidate's share increases by 18.5 % in the deep south states if we look at the year 1964 compared to a different year.
 
 
 # Conclusion
+
+In this report we built a statistical model to describe the US presidential elections between 1948 and 1992. We started by using a linear model and then moved to a linear mixed model, with a random effect for the interaction between `year` and `region`. The reason why a linear mixed model might be better in this case is that we can allow for dependence between certain observation. Intuitively, it seems reasonable that observations for the Democratic candidate's share in certain states from the same year influence each other if they are in the same region. A possible explanation for that could be that the states from the same region have a lot more interaction with each other and possibly even share the same newspapers, which can influence the peoples voting preferences.
