@@ -223,7 +223,7 @@ Y = X\beta + Z b + \epsilon, \quad b \sim N_q(0,C), \quad \epsilon \sim N_n(0, \
 $$
 where $X \in \mathbb{R}^{n\times p}$ and $Z \in \mathbb{R}^{n\times q}$ are known design matrices, $\beta \in \mathbb{R}^p$ are fixed parameters (effects), $b \in \mathbb{R}^q$ are random effects (independent of $\epsilon$) and $Y \in \mathbb{R}^n$ is the response. So the parameters in a Linear Mixed model are $\beta, C$ and $\sigma^2$. They are estimated either by using maximum likelihood (ML) or restricted maximum likelihood (REML). In our analysis we use the ML method. The inclusion of the random effect $b$ in the model allows for the modeling of the correlation structure among the observations. Specifically, the random effect $b$ captures the deviation of the observations within a group from the overall population mean (fixed effect). Moreover the covariance matrix $C$ of $b$ can allow for correlation between different groups.
 
-As observed in Figure (\@ref(fig:twolvlgroup)) we would like to allow for dependency between observations from the same year and region. So we add a random effect of the interaction between `year` and `region` to our linear model from the section before. Furthermore we also add a random effect to `year` itself as it intuitively makes sense to allow for correlation of observations from the same year. In the R syntax, we add the term `(1|year/region)` to our linear model and fit it with the lmer function from the lme4 library. We have `(1|year/region) = (1|year) + (1|year:region)`, which adds a random intercept for `year` and regions within years `region:year` to our model. We then look at the same plot as in Figure (\@ref(fig:twolvlgroup)) but take the residuals from the mixed model to see if we solved the issue.
+As observed in Figure (\@ref(fig:twolvlgroup)) we would like to allow for dependency between observations from the same year and region. So we add a random effect of the interaction between `year` and `region` to our linear model from the section before. Furthermore we also add a random effect to `year` itself as it intuitively makes sense to allow for correlation between observations from the same year. In the R syntax, we add the term `(1|year/region)` to our linear model and fit it with the lmer function from the lme4 library. We have `(1|year/region) = (1|year) + (1|year:region)`, which adds a random intercept for `year` and regions within years `region:year` to our model. Note that since we add a random effect for `year` to our model we remove the fixed effect of `year` because we do not want to have both a fixed effect and a random effect for `year` at the same time. Not having a fixed effect for years in the model allows us to use the nationwide variables, as we do not have singularity problems anymore. Figure (\@ref(fig:mixedm0)) now shows the same plot as in Figure (\@ref(fig:twolvlgroup)) but we take the residuals from the mixed model to see if we solved the issue.
 
 ```{r mixedm0, fig.cap="For each region the corresponding plot shows boxplots of the residuals from the mixed model corresponding to the same year."}
 # create mixed model with random intercept for year and year:region
@@ -231,13 +231,10 @@ mixed_m1 = lmer(dvote ~ .
                 - evotes 
                 - region 
                 - state_ideology 
-                - dvote_poll 
-                - dapprove_inc
-                - dapprove_presinc 
-                - gnp_growth_inc 
                 - ideology_comp 
                 - year
-                + (1|year/region), 
+                + (1|year)
+                + (1|year:region), 
                 REML = FALSE,
                 data = data)
 # create dataframes with residuals for each to replicate plot from before 
@@ -265,7 +262,7 @@ west_res_plot = ggplot(mapping=aes(y=residuals, col=year), data = data_west_mixe
 ggarrange(northeast_res_plot, south_res_plot, midwest_res_plot, west_res_plot, 
           ncol = 2, nrow = 2, common.legend = TRUE, legend = "right")
 ```
-The distribution of the residuals within one year and region look much better, suggesting that adding the random coefficients to the model was useful. Now we test if we can reduce part of the random effect structure of our model, specifically we test if we can exclude the random intercept for `year`. In Figure (\@ref(fig:onelvlgroup)) we do not observe a clear dependence in observations from the same year, suggesting that there is possibly no need for a random intercept for `year`. To test this assumption we use parametric bootstrap rather than an anova model submodel test. The reason for that is because as the random effects are constraint, they are not taking one degree of freedom per effect, but a bit less. Hence we can not easily determine the exact number of degrees of freedom of the asymptotic chi square distribution of the likelihood ratio test. In parametric bootstrap we do not need to know the distribution of the likelihood ratio test. In the following we denote the full model with random intercept for `year` and `year:region` as `mixed_m1` ($H_1$) and the model without a random intercept for `year` as `mixed_m0` ($H_0$). We then proceed as follows to test $H_0$ vs $H_1$.
+The distribution of the residuals within one year and region look much better, suggesting that adding the random effects to the model was useful. Now we test if we can reduce part of the random effect structure of our model, specifically we test if we can exclude the random intercept for `year`. In Figure (\@ref(fig:onelvlgroup)) we do not observe a clear dependence in observations from the same year, suggesting that there is possibly no need for a random intercept for `year`. To test this assumption we use parametric bootstrap rather than an anova model submodel test. The reason for that is because as the random effects are constraint, they are not taking one degree of freedom per effect, but a bit less. Hence we can not easily determine the exact number of degrees of freedom of the asymptotic chi square distribution of the likelihood ratio test. Thus we use parametric bootstrap, where we do not need to know the distribution of the likelihood ratio test. In the following we denote the full model with random intercept for `year` and `year:region` as `mixed_m1` ($H_1$) and the model where we remove the random intercept for `year` as `mixed_m0` ($H_0$). We then proceed as follows to test $H_0$ vs $H_1$.
 
 * Calculate the likelihood ratio statistic $\text{lr}$ of `mixed_m0` and `mixed_m1`
 * Repeat the below n times.
@@ -278,24 +275,38 @@ p = \frac{1}{n}\sum_{i=1}^n \mathbb{1}_{\{\text{lr}_{\text{boot}}^i > \text{lr}\
 $$
 
 ```{r parametric bootstrap}
-load("Data/p_value.RData")
-p = as.numeric(p_value)
-print(p)
+# the calculations for the parametric bootstrap can be found in the separate script
+# called bootstrap_script.R
 ```
 
-When we perform these calculations with $n = 1000 $ we get a p-value of $0.783$, suggesting that it is not necessary to include `years` as a random effect in our model and hence we can discard part of the random effect structure. So we proceed with the model with a random effect only for the interaction of `years` with `region`.
+When we perform these calculations with $n = 1000$ we get a p-value of $0.598$, suggesting that it is not necessary to include `years` as a random effect in our model and hence we can discard part of the random effect structure. So we proceed with the model with a random effect only for the interaction of `years` with `region`. For the fixed effects, we look at the type two anova test. Since we only test for fixed effects, the likelihood ratio test follows chi square distribution asymptotically where we can determine the degrees of freedom as usual. Note that we fit our linear mixed model using ML such that we can make use of the likelihood ratio test.
 
 ```{r}
 # create model without random intercept for year
-mixed_m0 <- lmer(dvote ~ 
-                   + dvote_last + dvote_last2 + home_state + home_state_vice+dmajor_leg+
-                   econ_growth_inc+cath_1960+south+south_1964+deep_south_1964+
-                   new_england_1964+new_england_1972+west_1976 +
-                   (1|year:region) + state + year, 
-                REML = FALSE,
-                data = data)
-
-Anova(mixed_m0, type = 2, data = data)
+mixed_m0 = lmer(dvote ~ 
+                + state 
+                + dvote_poll 
+                + dapprove_inc 
+                + dapprove_presinc 
+                + gnp_growth_inc 
+                + dvote_last 
+                + dvote_last2 
+                + home_state 
+                + home_state_vice 
+                + dmajor_leg 
+                + econ_growth_inc 
+                + cath_1960 
+                + south 
+                + south_1964 
+                + deep_south_1964 
+                + new_england_1964 
+                + new_england_1972 
+                + west_1976 
+                + (1|year:region),
+                data = data, 
+                REML = FALSE)
+anova2 = Anova(mixed_m0, type = 2, data = data)
+kable(anova2, digits = 3, caption = "Type 2 anova for the fixed effects in our linear mixed model, comparing for each coefficient the full model with the full model excluding the predictor from that coefficient.")
 ```
 
 # Parameter interpretation
