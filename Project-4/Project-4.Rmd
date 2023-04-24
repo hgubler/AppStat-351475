@@ -319,7 +319,7 @@ To conclude, our last model now consists of the fixed effects present in Table (
 
 ## Random Effect Diagnostics
 
-The model diagnostic s for a linear mixed model are similar to those of a linear model. One further assumption in the linear mixed model is that the mixed effects are jointly normal. Since we only have one random effect in our model (for the interaction between `year` and `region`), we look at the normal Q-Q plot of all the random intercepts of our random effect.
+The model diagnostics for a linear mixed model are similar to those of a linear model. One further assumption in the linear mixed model is that the mixed effects are jointly normal. Since we only have one random effect in our model (for the interaction between `year` and `region`), we look at the normal Q-Q plot of all the random intercepts of our random effect.
 
 Besides that, we look at standard diagnostic plots for the linear model as in Figure (\@ref(fig:diagnostics)), namely the residuals vs fitted values and normal Q-Q plot for the residuals.
 
@@ -372,7 +372,6 @@ ggarrange(res_vs_fit, qq_plot, qq_ran_eff, ncol = 3, nrow = 1)
 ```
 
 The normal Q-Q plot for the residuals and the residuals vs fitted values plot look almost identical to those in Figure (\@ref(fig:diagnostics)) and hence as in the case for the linear model they do not look like a model assumption is clearly violated. Furthermore the normal Q-Q plot for the random effect in our model looks acceptable and, based on the small number of observations, we may assume that the normality assumption of our random intercepts holds.
-
 
 
 # Parameter interpretation
