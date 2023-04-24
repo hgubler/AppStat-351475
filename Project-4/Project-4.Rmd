@@ -219,7 +219,7 @@ The linear mixed model is an extension of the linear model. We define it as
 $$
 Y = X\beta + Z b + \epsilon, \quad b \sim N_q(0,C), \quad \epsilon \sim N_n(0, \sigma^2I_n)
 $$
-where $X \in \mathbb{R}^{n\times p}$ and $Z \in \mathbb{R}^{n\times q}$ are known design matrices, $\beta \in \mathbb{R}^p$ are fixed parameters (effects), $b \in \mathbb{R}^q$ are random effects (independent of $\epsilon$) and $Y \in \mathbb{R}^n$ is the response. So the parameters in a linear mixed model are $\beta, C$ and $\sigma^2$. They are estimated either by using maximum likelihood (ML) or restricted maximum likelihood (REML). In our analysis we use the ML method. The inclusion of the random effect $b$ in the model allows for the modeling of the correlation structure among the observations. Specifically, the random effect $b$ captures the deviation of the observations within a group from the overall population mean (fixed effect). Moreover the covariance matrix $C$ of $b$ can allow for correlation between different groups.
+where $X \in \mathbb{R}^{n\times p}$ and $Z \in \mathbb{R}^{n\times q}$ are known design matrices, $\beta \in \mathbb{R}^p$ are fixed parameters (effects), $b \in \mathbb{R}^q$ are random effects (independent of $\epsilon$) and $Y \in \mathbb{R}^n$ is the response. So the parameters in a linear mixed model are $\beta, C$ and $\sigma^2$. They are estimated either by using maximum likelihood (ML) or restricted maximum likelihood (REML). In our analysis we use the ML method. The inclusion of the random effect $b$ in the model allows for the modeling of the correlation structure among the observations. Specifically, the random effect $b$ captures the deviation of the observations within a group from the overall population mean (fixed effect). Moreover the covariance matrix $C$ of $b$ can allow for correlation between different random effects
 
 As observed in Figure (\@ref(fig:twolvlgroup)) we would like to allow for dependency between observations from the same year and region. So we add a random effect for the interaction between `year` and `region` to our linear model from the section before. Furthermore we also add a random effect for `year` itself as it intuitively makes sense to allow for correlation between observations from the same year. In the R syntax, we add the term `(1|year/region)` to our linear model and fit it with the `lmer` function from the `lme4` library. We have the relationship `(1|year/region) = (1|year) + (1|year:region)`, which adds a random intercept for `year` and regions within years `region:year` to our model. Note that since we add a random effect for `year` to our model we remove the fixed effect of `year` because we do not want to have both a fixed and random effect for `year` at the same time. But then, not having a fixed effect for `year` in the model allows us to use the nationwide variables that we excluded before, as we do not have singularity problems anymore. Figure (\@ref(fig:mixedm0)) now shows the same plot as in Figure (\@ref(fig:twolvlgroup)) but with the residuals from the mixed model to see if we solved the issue.
 
@@ -313,13 +313,15 @@ kable(anova2, digits = 3, caption = "Type 2 anova for the fixed effects in our l
 ```
 According to the type 2 anova test, only `dapprove_inc` seems to be not statistically significant. `dapprove_presinc` is exactly the same as `dapprove_inc` if the incumbent president is running for a re-election and zero else, so this result suggests that the support for the incumbent president does not matter to predict `dvote` if he is not running for a re-election. Thus, as a last step, we remove `dapprove_inc` from our linear mixed model.
 
-To conclude, our last model now consists of the fixed effects present in Table (\@ref(tab:anova2)), except `dapprove_inc`, and a random effect for the interaction between `year` and `region`.
+To conclude, our last model now consists of the fixed effects present in Table (\@ref(tab:anova2)), except `dapprove_inc`, and a random effect for the interaction between `year` and `region`. In the next section, we look at some of the most important diagnostic tools for our linear mixed model. 
 
-# Parameter interpretation
+## Random Effect Diagnostics
 
-In this section we examine the coefficients (fixed effects) of our final model as well as interpret some of the most important parameters. The following table contains the values of some selected coefficients.
+The model diagnostic s for a linear mixed model are similar to those of a linear model. One further assumption in the linear mixed model is that the mixed effects are jointly normal. Since we only have one random effect in our model (for the interaction between `year` and `region`), we look at the normal Q-Q plot of all the random intercepts of our random effect.
 
-```{r coeftable}
+Besides that, we look at standard diagnostic plots for the linear model as in Figure (\@ref(fig:diagnostics)), namely the residuals vs fitted values and normal Q-Q plot for the residuals.
+
+```{r mixeddiagnostics, fig.width=10.75, fig.height=3.5, fig.cap="Residuals vs fitted values (left), normal Q-Q plot for the residuals (middle) and normal Q-Q plot for the random intercepts of the random effect between year and region."}
 # remove presinc dapprove_inc from the model, as described above
 mixed_m2 = lmer(dvote ~ 
                 + state 
@@ -342,6 +344,40 @@ mixed_m2 = lmer(dvote ~
                 + (1|year:region),
                 data = data, 
                 REML = FALSE)
+# prepare the residuals dataset for diagnostic plots
+data_res$residuals = resid(mixed_m2) # residual of mixed_m2
+data_res$fitted = predict(mixed_m2) # fitted values of mixed_m2
+# create residuals vs fitted values plot
+res_vs_fit = ggplot(data_res, aes(x = fitted, y = residuals)) + 
+  geom_point() + 
+  labs(x = "fitted values", y = "residuals") + 
+  ggtitle("Residuals vs Fitted Values")
+# create qq plot
+qq_plot = ggplot(data_res, aes(sample = std_residuals)) +
+  stat_qq() + 
+  stat_qq_line() + 
+  labs(x = "theoretical quantiles", y = "standardized residuals quantiles") + 
+  ggtitle("Normal Q-Q Plot for Residuals")
+# plot residuals vs fitted values (left) and qqplot (right)
+random_effects = ranef(mixed_m2)$'year:region'[, 1]
+random_effects = as.data.frame(random_effects)
+qq_ran_eff = ggplot(data = random_effects, aes(sample = random_effects)) + 
+  stat_qq() + 
+  stat_qq_line() +
+  labs(x = "theoretical quantiles", y = "random intercepts") +
+  ggtitle("Normal Q-Q Plot for Random Effect")
+ggarrange(res_vs_fit, qq_plot, qq_ran_eff, ncol = 3, nrow = 1)
+```
+
+The normal Q-Q plot for the residuals and the residuals vs fitted values plot look almost identical to those in Figure (\@ref(fig:diagnostics)) and hence as in the case for the linear model they do not look like a model assumption is clearly violated. Furthermore the normal Q-Q plot for the random effect in our model looks acceptable and, based on the small number of observations, we may assume that the normality assumption of our random intercepts holds.
+
+
+
+# Parameter interpretation
+
+In this section we examine the coefficients (fixed effects) of our final model as well as interpret some of the most important parameters. The following table contains the values of some selected coefficients.
+
+```{r coeftable}
 # create a table of some selected coefficients (dont want to display all the 
 # 50 states coefficients)
 coef_table = as.data.frame(summary(mixed_m2)$coefficients)
@@ -368,6 +404,7 @@ The interpretation for these coefficients is not always straightforward. Therefo
 * The Democratic party candidate's share increases by 18.5 % in the deep south states if we look at the year 1964.
 
 According to our model, `dvote_poll` (the support for the democratic candidate in the September poll) is definitely one of the most important factors to predict the Democratic candidate's share in the election.
+
 
 # Conclusion
 
