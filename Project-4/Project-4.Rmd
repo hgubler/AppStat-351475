@@ -260,7 +260,9 @@ west_res_plot = ggplot(mapping=aes(y=residuals, col=year), data = data_west_mixe
 ggarrange(northeast_res_plot, south_res_plot, midwest_res_plot, west_res_plot, 
           ncol = 2, nrow = 2, common.legend = TRUE, legend = "right")
 ```
-The distribution of the residuals within one year and region look much better, suggesting that adding the random effects to the model was useful. Now we test if we can reduce part of the random effect structure of our model, specifically we test if we can exclude the random intercept for `year`. In Figure (\@ref(fig:onelvlgroup)) we do not observe a clear dependence in observations from the same year, suggesting that there is possibly no need for a random intercept for `year`. To test this assumption we use parametric bootstrap rather than an anova model submodel test. The reason for that is because as the random effects are constraint, they are not taking one degree of freedom per effect, but a bit less. Hence we can not easily determine the exact number of degrees of freedom of the asymptotic chi square distribution of the likelihood ratio test. Thus we use parametric bootstrap, where we do not need to know the distribution of the likelihood ratio test. In the following we denote the full model with random intercept for `year` and `year:region` as `mixed_m1` ($H_1$) and the model where we remove the random intercept for `year` as `mixed_m0` ($H_0$). We then proceed as follows to test $H_0$ vs $H_1$.
+The distribution of the residuals within one year and region look much better, suggesting that adding the random effects to the model was useful. But could we not just include a fixed effect for `year` and the interaction between `year` and `region` to the linear model instead of moving to mixed models? In fact, Figure (\@ref(fig:mixedm0)) looks quite similar if we include `year` and the interaction as fixed effects instead of as random effects, meaning that also in this case the groups of the residuals are much more centered around zero than in Figure (\@ref(fig:twolvlgroup)). Still, this might not be the best idea as it adds another 48 coefficients to our model (12 years times 4 regions), where our dataset contains only a few more than 500 observations. Having too many coefficients in a model blows up the standard errors of these coefficients. In our case, we are not even able to fit all the coefficients for the interaction between `year` and `region` due to singularity issues of the design matrix. This justifies why we proceed with the linear mixed model.
+
+Next we test if we can reduce part of the random effect structure of our model, specifically we test if we can exclude the random intercept for `year`. In Figure (\@ref(fig:onelvlgroup)) we do not observe a clear dependence in observations from the same year, suggesting that there is possibly no need for a random intercept for `year`. To test this assumption we use parametric bootstrap rather than an anova model submodel test. The reason for that is because as the random effects are constraint, they are not taking one degree of freedom per effect, but a bit less. Hence we can not easily determine the exact number of degrees of freedom of the asymptotic chi square distribution of the likelihood ratio test. Thus we use parametric bootstrap, where we do not need to know the distribution of the likelihood ratio test. In the following we denote the full model with random intercept for `year` and `year:region` as `mixed_m1` ($H_1$) and the model where we remove the random intercept for `year` as `mixed_m0` ($H_0$). We then proceed as follows to test $H_0$ vs $H_1$.
 
 * Calculate the likelihood ratio statistic $\text{lr}$ of `mixed_m0` and `mixed_m1`.
 * Repeat the below $n$ times.
@@ -353,10 +355,10 @@ res_vs_fit = ggplot(data_res, aes(x = fitted, y = residuals)) +
   labs(x = "fitted values", y = "residuals") + 
   ggtitle("Residuals vs Fitted Values")
 # create qq plot
-qq_plot = ggplot(data_res, aes(sample = std_residuals)) +
+qq_plot = ggplot(data_res, aes(sample = residuals)) +
   stat_qq() + 
   stat_qq_line() + 
-  labs(x = "theoretical quantiles", y = "standardized residuals quantiles") + 
+  labs(x = "theoretical quantiles", y = "residuals quantiles") + 
   ggtitle("Normal Q-Q Plot for Residuals")
 # plot residuals vs fitted values (left) and qqplot (right)
 random_effects = ranef(mixed_m2)$'year:region'[, 1]
@@ -364,7 +366,7 @@ random_effects = as.data.frame(random_effects)
 qq_ran_eff = ggplot(data = random_effects, aes(sample = random_effects)) + 
   stat_qq() + 
   stat_qq_line() +
-  labs(x = "theoretical quantiles", y = "random intercepts") +
+  labs(x = "theoretical quantiles", y = "random intercepts quantiles") +
   ggtitle("Normal Q-Q Plot for Random Effect")
 ggarrange(res_vs_fit, qq_plot, qq_ran_eff, ncol = 3, nrow = 1)
 ```
