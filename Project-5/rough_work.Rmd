@@ -1,0 +1,94 @@
+---
+title: "rough_work"
+author: "Hannes"
+date: "2023-05-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE)
+```
+
+# Data Exploration
+
+```{r}
+library("tidyverse")
+data_C02_atm = read.csv(file = "data/CO2_atmosphere.csv")
+data_C02_emi = read.csv(file = "data/CO2_emissions.csv")
+data_temp = read.csv(file = "data/temperature.csv")
+data_temp = pivot_longer(data_temp, cols = c("Jan", "Feb", "Mar", 
+                                             "Apr", "May", "Jun",
+                                             "Jul", "Aug", "Sep", 
+                                             "Oct", "Nov", "Dec"), 
+                    names_to = "month", values_to = "temp")
+temp = as.numeric(data_temp$temp)
+ts_temp = ts(temp, start = 1880, frequency = 12)
+plot(ts_temp)
+```
+
+We see a clear trend (change in mean). Seasoning not clearly visible, maybe because measurements are anomalies. Variance seems to be constant so no transformation.
+
+Fit a linear model with linear dependence on time, and one with quadratic dependence on time and month as factor. Analyze its residuals
+
+```{r}
+lm_data = data.frame(y = temp, 
+                     month = as.factor(rep(1:12,length(temp)/12)),
+                     time = 1:length(temp))
+lm_temp_lin = lm(y ~ ., data = lm_data)
+lm_temp_quad = lm(y ~ . + I(time^2), data = lm_data)
+lm_data$res_lin = resid(lm_temp_lin)
+lm_data$res_quad = resid(lm_temp_quad)
+lm_data$fit_lin = lm_temp_lin$fitted.values
+lm_data$fit_quad = lm_temp_quad$fitted.values
+fit_lin_plot = ggplot(lm_data, aes(x = time)) + 
+  geom_line(aes(y = temp), linewidth = 0.5) +
+  geom_line(aes(y = fit_lin, col = "red"), linewidth = 0.5)
+fit_quad_plot = ggplot(lm_data, aes(x = time)) + 
+  geom_line(aes(y = temp), linewidth = 0.5) +
+  geom_line(aes(y = fit_quad, col = "red"), linewidth = 0.5)
+res_lin_plot = ggplot(lm_data, aes(x = time, y = res_lin)) +
+  geom_line()
+res_quad_plot = ggplot(lm_data, aes(x = time, y = res_quad)) + 
+  geom_line()
+library(ggpubr)
+ggarrange(fit_lin_plot, fit_quad_plot, res_lin_plot, res_quad_plot, nrow = 2, ncol = 2)
+```
+
+so quadratic trend seems reasonable? -> Hence twice differencing might be good, is that the conclusion out of a quadratic trend?
+
+Look at ACF and PACF
+
+```{r}
+library("DescTools")
+PlotACF(ts_temp)
+```
+
+Exponential decay in ACF and cut off at lag 2 -> Chose AR2 based on this plot?
+
+Seasoning? Difference time series twice, then look at ACF
+
+```{r}
+diffed_ts_temp = diff(diff(ts_temp), lag = 12)
+par(mfrow = c(1, 2))
+acf(diffed_ts_temp)
+pacf(diffed_ts_temp)
+```
+
+-> Chose a c(2,1,1)_12 for seasoning
+
+So fit Sarima((2,2,0), (2,1,1)_12)
+
+```{r}
+library(forecast)
+ts_temp_fit = Arima(ts_temp, order = c(2, 2, 0), seasonal = c(2, 1, 1))
+par(mfrow = c(1, 2))
+acf(ts_temp_fit$residuals)
+pacf(ts_temp_fit$residuals)
+```
+
+Looks bad -> what could i change?
+
+
+Questions
+
+* Why does lm fits not capture same amount of variance? 
