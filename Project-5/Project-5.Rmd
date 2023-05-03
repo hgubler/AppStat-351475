@@ -2,7 +2,9 @@
 title: "Project-5"
 author: "Hannes"
 date: "2023-05-01"
-output: html_document
+output: 
+  bookdown::html_document2:
+    toc: true
 ---
 
 ```{r setup, include=FALSE}
@@ -11,3 +13,147 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 
 # Introduction
 
+Global warming has been a big topic of discussion in the recent years, presenting a difficult challenge that humanity must address in the years to come. Forecasting future scenarios is an important step towards addressing this challenge, as it allows us to adapt our current behavior and take appropriate steps to reduce global warming.
+
+In this report we use time series analysis to produce short term forecasts of the temperature development. Furthermore we try to determine the form of global warming (more specifically, we will compare the hypotheses of linear, quadratic or exponential growth). In the first part of the report we want to model the temperature development data using the Samira method, hence we dedicate this part to figure out appropriate parameters for this method. Once we have the Samira model, we use it for forecasts of global warming as well as comparing different scenarios in the second part of the report.
+
+# Data Exploration
+
+The data consists of monthly temperature anomalies from year 1880 to 2022 In ecology, anomalies are defined as departures from a reference value. In our case, the reference value (probably) corresponds to monthly averages from some earlier time point up to 1960 (where significant increase in temperature is visible due to the industrialization). The temperature from which the anomalies are calculated is a global average. 
+
+As a first exploratory tool, we look at the plot of the time series in Figure (\@ref(fig:timeseriesplot)).
+
+```{r timeseriesplot, fig.cap="Time series of temperature anomalies from 1880 to 2022"}
+library("tidyverse")
+library("knitr")
+library("DescTools")
+library("forecast")
+# load data and prepare it for time series
+data_temp = read.csv(file = "data/temperature.csv")
+data_temp = pivot_longer(data_temp, cols = c("Jan", "Feb", "Mar", 
+                                             "Apr", "May", "Jun",
+                                             "Jul", "Aug", "Sep", 
+                                             "Oct", "Nov", "Dec"), 
+                    names_to = "month", values_to = "temp")
+temp = as.numeric(data_temp$temp) # numerical vector of raw values
+ts_temp = ts(temp, start = 1880, frequency = 12) # time series with monthly frequency
+plot(ts_temp, ylab = "temperature anomalies", xlab = "year")
+```
+
+We see a clear upwards trend in our time series, starting from 1960 up to today. On the other side there is no clear sign of seasonality (a repeating yearly pattern of the time series). 
+
+# Time Series Samira Model
+
+In this section we try to find an appropriate model to describe the time series from Figure (\@ref(fig:timeseriesplot)). 
+
+## Theoretical Preliminaries
+
+A time series is defined as a stochastic process $(X_t, t \in T)$, where in our case we have $T \subset \mathbb{Z}$ and $(X_t)$ is serially correlated. One important property to model a time series is (weakly) stationarity, which is defined by the following properties.
+
+1. $\mathbb{E}|X_t|^2 < \infty$
+2. $\mathbb{E}[X_t] = \mu \quad \forall t \in T$
+3. $\text{cov}(X_t,X_s) = \text{cov}(X_{t+h}, X_{s+h}) \quad \forall t,s,h$ such that $t,s,t+h,s+h \in T$
+
+Even tough it is impossible to prove stationarity, we can find evidence against it. The major evidences against stationarity are
+
+* a trend
+* seasonality
+* non-constant variance
+* structural changes in the mean or in the dependency.
+
+If non constant variance is present, a transformation of the data is needed (e.g. log transformation).
+
+To deal with trend and/or seasonality, we decompose our time series, that is $X_t = T_t + S_t + Y_t$ where $T_t$ denotes the trend component, $S_t$ denotes the seasonal component and $Y_t$ denotes the stationary remainder. Then we can apply differencing to the time series $(X_t)$, that is 
+
+* In the case where a trend is present, $X_t = T_t + Y_t$ with $T_t \approx T_{t-1}$: $X_t - X_{t-1}$ is approximately stationary.
+* In the case where seasonality is present, $X_t = S_t + Y_t$ with $S_t = S_{t-s}$: $X_t - X_{t-s}$ is approximately stationary.
+
+Note that by differencing $k$-times, any polynomial trend of degree $k$ can be reduced to a single drift. Furthermore seasonal differencing can take care of a trend in some cases.
+
+We define a time series $(Z_t, t \in \mathbb{Z})$ as *white noise* if it is stationary, $\mathbb{E}[Z_t]=0$ $\forall t$ and $\text{cov}(X_t, X_{t+h}) = 0$ $\forall h \neq 0$. From now on $(Z_t, t \in \mathbb{Z})$ will always denote white noise.
+
+Our methods from the following sections are a combination of (seasonal) differencing, and the processes MA$(q)$ and AR$(p)$, where we define the latter ones as follows.
+
+* $(X_t, t\in \mathbb{Z})$ is a moving average of order q, denoted by MA$(q)$, if 
+$$
+X_t = Z_t + \theta_1 Z_{t-1} + ... +  \theta_q Z_{t-q   }
+$$
+
+* $(X_t, t\in \mathbb{Z})$ is an autoregressive process of order p, denoted by AR$(p)$, if 
+$$
+X_t = Z_t + \phi_1 X_{t-1} + ... +  \phi_p X_{t-p}
+$$
+
+So an AR$(p)$ process can be interpreted as a weighted average of the last $p$ observations plus some white noise. A MA$(q)$ process can be interpreted as a weighted average of the last $q$ noise observations, so its based on the error that the process was not able to predict. An example for an MA$(q)$ process is someone designing a cake recipe, where the amount of an ingredient depends on the amount that was missing/too much in the last try. 
+
+
+We denote the combination of an AR$(p)$ and MA$(q)$ process as ARMA$(p,q)$. Then, a Samira model is, roughly speaking, an ARMA$(p,q)$ process taking into account (seasonal) differencing. There are a total of 6 hyperparameters to define in a Samira model:
+
+* $q$ for the order of the AR component
+* $p$ for the order of the MA component
+* $d$ for the number of differencing
+* $D$ for the number of seasonal differencing
+* $Q$ for the order of the AR component on a seasonal level (AR process on the series $(X_{ts})$), where $s$ is the frequency of the season.
+* P for the order of the MA component on a seasonal level (as above for MA)
+
+Once we defined the hyperparameters of the Samira model, the parameters are estimated by Gaussian MLE.
+
+## Samira Model Building
+
+As we saw in Figure (\@ref(fig:timeseriesplot)), there is a clear trend visible. To figure our differencing parameter $d$ we fit two linear models to our data: One with linear dependence on time and one with quadratic dependence on time. In both models we include a factor variable `month` specifying the month of the corresponding observation. We then look at the fits of these regressions and their residuals in Figure (\@ref(fig:trendanalyse)).
+
+```{r trendanalyse, fig.cap="Linear models with linear depenency on time (left) and quadratic dependency on time (right) with their residuals for the time series."}
+lm_data = data.frame(y = temp, 
+                     month = as.factor(rep(1:12,length(temp)/12)),
+                     time = 1:length(temp))
+lm_temp_lin = lm(y ~ ., data = lm_data)
+lm_temp_quad = lm(y ~ . + I(time^2), data = lm_data)
+lm_data$res_lin = resid(lm_temp_lin)
+lm_data$res_quad = resid(lm_temp_quad)
+lm_data$fit_lin = lm_temp_lin$fitted.values
+lm_data$fit_quad = lm_temp_quad$fitted.values
+fit_lin_plot = ggplot(lm_data, aes(x = time)) + 
+  geom_line(aes(y = temp), linewidth = 0.5) +
+  geom_line(aes(y = fit_lin), col = "red", linewidth = 0.5) +
+  labs(x = "time (observation number)", y = "anomalies") +
+  ggtitle("Linear Fit")
+fit_quad_plot = ggplot(lm_data, aes(x = time)) + 
+  geom_line(aes(y = temp), linewidth = 0.5) +
+  geom_line(aes(y = fit_quad), col = "red", linewidth = 0.5) + 
+  labs(x = "time (observation number)", y = "anomalies") +
+  ggtitle("Quadratic Fit")
+res_lin_plot = ggplot(lm_data, aes(x = time, y = res_lin)) +
+  geom_line() +
+  labs(x = "time (observation number)", y = "residuals") + 
+    ggtitle("Linear Fit Residuals")
+res_quad_plot = ggplot(lm_data, aes(x = time, y = res_quad)) + 
+  geom_line() +
+  labs(x = "time (observation number)", y = "residuals") + 
+    ggtitle("Quadratic Fit Residuals")
+library(ggpubr)
+ggarrange(fit_lin_plot, fit_quad_plot, res_lin_plot, res_quad_plot, nrow = 2, ncol = 2)
+```
+Visually the model with quadratic dependency on time seems to be a better approximation of the time series, but still not a perfect approximation which can be seen in the residuals. Looking back at Figure (\@ref(fig:timeseriesplot)), also a piecewise linear trend might be plausible, with a knot around 1960. So in our Samira model, we will analyze the possibilities of differencing once or twice, to adjust for a linear or quadratic trend.
+
+To determine the parameters $p$ and $q$ we look at the (partial) autocorrelation functions (ACF and PACF). The ACF $\rho(h)$ specifies the correlation between $X_t$ and $X_{t+h}$. The PACF $\alpha(h)$ specifies, roughly speaking, the correlation between $X_t$ and $X_{t+h}$ that remains after the correlation due to all the intermediate observations $X_{t+1},...,X_{t+h-1}$. We have the following characteristics.
+
+```{r charactable}
+# Create data frame with ACF and PACF properties
+table_df <- data.frame(
+  Model = c("AR(p)", "MA(q)", "ARMA(p,q)"),
+  ACF = c("exponential decay", "cut-off at lag q", "mix decay/cut-off"),
+  PACF = c("cut-off at lag p", "exponential decay", "mix decay/cut-off")
+)
+
+# Print table with kable
+kable(table_df, 
+      col.names = c("Model", "ACF", "PACF"), 
+      row.names = FALSE,
+      caption = "Summary of ACF and PACF characteristics for AR, MA, and ARMA models.")
+
+```
+
+
+## Samira Model Diagnostics
+
+# Global Warming Forecast and Scenarios

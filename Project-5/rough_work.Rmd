@@ -54,7 +54,7 @@ library(ggpubr)
 ggarrange(fit_lin_plot, fit_quad_plot, res_lin_plot, res_quad_plot, nrow = 2, ncol = 2)
 ```
 
-so quadratic trend seems reasonable? -> Hence twice differencing might be good, is that the conclusion out of a quadratic trend?
+so quadratic trend seems reasonable? -> Hence twice differencing might be good? But if we look closely at the time series, it looks like piecewise linear trend. So could test both later.
 
 Look at ACF and PACF
 
@@ -63,30 +63,74 @@ library("DescTools")
 PlotACF(ts_temp)
 ```
 
-Exponential decay in ACF and cut off at lag 2 -> Chose AR2 based on this plot?
+Exponential decay in ACF and cut off at lag 2 -> Chose AR2 based on this plot? (so 2,1,0) or (2,2,0) so far
 
-Seasoning? Difference time series twice, then look at ACF
+Seasoning? Difference time series with lag 12 (because then we compare the measurements from this year with the last year, so the increase/decrease from this year to last year and hence we can analyze the dependencies of these lags to determine seasonal parameters), then look at ACF and PACF of it.
 
 ```{r}
-diffed_ts_temp = diff(diff(ts_temp), lag = 12)
+diffed_ts_temp = diff(ts_temp, lag = 12)
 par(mfrow = c(1, 2))
 acf(diffed_ts_temp)
 pacf(diffed_ts_temp)
 ```
 
--> Chose a c(2,1,1)_12 for seasoning
+-> Chose a c(2,0,1)_12 for seasonal parameters. The middle parameter is not completely clear as we are not sure if we observe seasonality or not. Intuitively there may be no seasonality since we are comparing anomalies. However it is still possible since most measurements were taken in the northern hemisphere and we could have a summer/winter difference. So we can test both (2,0,1)_12 or (2,1,1)_12 for the seasonal parameters
 
-So fit Sarima((2,2,0), (2,1,1)_12)
+In general we were unsure about d = 1 or d = 2 and D = 0 or D = 1. Hence in total 4 models to test
+
+Compare the models with AIC and 
 
 ```{r}
 library(forecast)
-ts_temp_fit = Arima(ts_temp, order = c(2, 2, 0), seasonal = c(2, 1, 1))
+library(knitr)
+# fit potential models
+ts_temp_fit_1_0 = Arima(ts_temp, order = c(2, 1, 0), seasonal = c(2, 0, 1))
+ts_temp_fit_2_0 = Arima(ts_temp, order = c(2, 2, 0), seasonal = c(2, 0, 1))
+ts_temp_fit_1_1 = Arima(ts_temp, order = c(2, 1, 0), seasonal = c(2, 1, 1))
+ts_temp_fit_2_1 = Arima(ts_temp, order = c(2, 2, 0), seasonal = c(2, 1, 1))
+# calculate AIC of models
+AIC_1_0 = AIC(ts_temp_fit_1_0)
+AIC_2_0 = AIC(ts_temp_fit_2_0)
+AIC_1_1 = AIC(ts_temp_fit_1_1)
+AIC_2_1 = AIC(ts_temp_fit_2_1)
+AIC = c(AIC_1_0, AIC_2_0, AIC_1_1, AIC_2_1)
+# calculate predictive checking error (1 step)
+n = length(temp)
+train = 1:(n-floor(n/3)) # training data (2 / 3 of real data)
+err = array(0, c(4, floor(n/3)-1+1))
+for(j in 0:(floor(n/3)-1)) {
+  ts_temp_fit_1_0_train = Arima(ts(temp[train + j], start = 1880, frequency = 12), 
+                                order = c(2, 1, 0), seasonal = c(2, 0, 1))
+  ts_temp_fit_2_0_train = Arima(ts(temp[train + j], start = 1880, frequency = 12), 
+                                order = c(2, 2, 0), seasonal = c(2, 0, 1))
+  ts_temp_fit_1_1_train = Arima(ts(temp[train + j], start = 1880, frequency = 12), 
+                                order = c(2, 1, 0), seasonal = c(2, 1, 1))
+  ts_temp_fit_2_1_train = Arima(ts(temp[train + j], start = 1880, frequency = 12), 
+                                order = c(2, 2, 0), seasonal = c(2, 1, 1))
+  err[1,j+1] = (temp[1 + end(train)[1]+j] - 
+                      predict(ts_temp_fit_1_0_train, n.ahead=1)$pred)^2
+  err[2,j+1] = (temp[1 + end(train)[1]+j] - 
+                      predict(ts_temp_fit_2_0_train, n.ahead=1)$pred)^2
+  err[3,j+1] = (temp[1 + end(train)[1]+j] - 
+                      predict(ts_temp_fit_1_1_train, n.ahead=1)$pred)^2
+  err[4,j+1] = (temp[1 + end(train)[1]+j] - 
+                      predict(ts_temp_fit_2_1_train, n.ahead=1)$pred)^2
+  print(j)
+}
+fit_comp = as.data.frame(AIC)
+kable(fit_comp)
+```
+
+```{r}
 par(mfrow = c(1, 2))
 acf(ts_temp_fit$residuals)
 pacf(ts_temp_fit$residuals)
 ```
 
-Looks bad -> what could i change?
+
+```{r}
+auto.arima(ts_temp)
+```
 
 
 Questions
