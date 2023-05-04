@@ -15,7 +15,7 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 
 Global warming has been a big topic of discussion in the recent years, presenting a difficult challenge that humanity must address in the years to come. Forecasting future scenarios is an important step towards addressing this challenge, as it allows us to adapt our current behavior and take appropriate steps to reduce global warming.
 
-In this report we use time series analysis to produce short term forecasts of the temperature development. Furthermore we try to determine the form of global warming (more specifically, we will compare the hypotheses of linear, quadratic or exponential growth). In the first part of the report we want to model the temperature development data using the Samira method, hence we dedicate this part to figure out appropriate parameters for this method. Once we have the Samira model, we use it for forecasts of global warming as well as comparing different scenarios in the second part of the report.
+In this report we use time series analysis to produce short term forecasts of the temperature development. Furthermore we try to determine the form of global warming (more specifically, we will compare the hypotheses of linear, quadratic or exponential growth). In the first part of the report we want to model the temperature development data using the SARIMA method, hence we dedicate this part to figure out appropriate parameters for this method. Once we have the SARIMA model, we use it for forecasts of global warming as well as comparing different scenarios in the second part of the report.
 
 # Data Exploration
 
@@ -37,12 +37,15 @@ data_temp = pivot_longer(data_temp, cols = c("Jan", "Feb", "Mar",
                     names_to = "month", values_to = "temp")
 temp = as.numeric(data_temp$temp) # numerical vector of raw values
 ts_temp = ts(temp, start = 1880, frequency = 12) # time series with monthly frequency
-plot(ts_temp, ylab = "temperature anomalies", xlab = "year")
+# Create plot of time series
+ggplot(data = ts_temp, aes(x = time(ts_temp), y = ts_temp)) + 
+  geom_line() +
+  labs(x = "year", y = "temperature anomalies")
 ```
 
 We see a clear upwards trend in our time series, starting from 1960 up to today. On the other side there is no clear sign of seasonality (a repeating yearly pattern of the time series). 
 
-# Time Series Samira Model
+# Time Series SARIMA Model
 
 In this section we try to find an appropriate model to describe the time series from Figure (\@ref(fig:timeseriesplot)). 
 
@@ -63,16 +66,16 @@ Even tough it is impossible to prove stationarity, we can find evidence against 
 
 If non constant variance is present, a transformation of the data is needed (e.g. log transformation).
 
-To deal with trend and/or seasonality, we decompose our time series, that is $X_t = T_t + S_t + Y_t$ where $T_t$ denotes the trend component, $S_t$ denotes the seasonal component and $Y_t$ denotes the stationary remainder. Then we can apply differencing to the time series $(X_t)$, that is 
+To deal with trend and/or seasonality, we decompose our time series, that is $X_t = T_t + S_t + Y_t$ where $T_t$ denotes the trend component, $S_t$ denotes the seasonal component and $Y_t$ denotes the stationary remainder. Then we can apply (seasonal) differencing to the time series $(X_t)$, that is 
 
-* In the case where a trend is present, $X_t = T_t + Y_t$ with $T_t \approx T_{t-1}$: $X_t - X_{t-1}$ is approximately stationary.
-* In the case where seasonality is present, $X_t = S_t + Y_t$ with $S_t = S_{t-s}$: $X_t - X_{t-s}$ is approximately stationary.
+* In the case where a trend is present, $X_t = T_t + Y_t$ with $T_t \approx T_{t-1}$: $X_t - X_{t-1}$ is approximately stationary (differencing).
+* In the case where seasonality is present, $X_t = S_t + Y_t$ with $S_t = S_{t-s}$: $X_t - X_{t-s}$ is approximately stationary (seasonal differencing).
 
 Note that by differencing $k$-times, any polynomial trend of degree $k$ can be reduced to a single drift. Furthermore seasonal differencing can take care of a trend in some cases.
 
 We define a time series $(Z_t, t \in \mathbb{Z})$ as *white noise* if it is stationary, $\mathbb{E}[Z_t]=0$ $\forall t$ and $\text{cov}(X_t, X_{t+h}) = 0$ $\forall h \neq 0$. From now on $(Z_t, t \in \mathbb{Z})$ will always denote white noise.
 
-Our methods from the following sections are a combination of (seasonal) differencing, and the processes MA$(q)$ and AR$(p)$, where we define the latter ones as follows.
+Our methods from the following sections are a combination of (seasonal) differencing with the processes MA$(q)$ and AR$(p)$, where we define the latter ones as follows.
 
 * $(X_t, t\in \mathbb{Z})$ is a moving average of order q, denoted by MA$(q)$, if 
 $$
@@ -86,17 +89,16 @@ $$
 
 So an AR$(p)$ process can be interpreted as a weighted average of the last $p$ observations plus some white noise. A MA$(q)$ process can be interpreted as a weighted average of the last $q$ noise observations, so its based on the error that the process was not able to predict. An example for an MA$(q)$ process is someone designing a cake recipe, where the amount of an ingredient depends on the amount that was missing/too much in the last try. 
 
+We denote the combination of an AR$(p)$ and MA$(q)$ process as ARMA$(p,q)$. If we include differencing by $d$ times, we denote the model by Arima$(p,d,q)$. Then, a Samira model is, roughly speaking, an ARMA$(p,q)$ process taking into account (seasonal) differencing. There are a total of 6 hyperparameters to define in a SARIMA model, denoted by SARIMA$(p,d,q,P,D,Q)$ where we use
 
-We denote the combination of an AR$(p)$ and MA$(q)$ process as ARMA$(p,q)$. Then, a Samira model is, roughly speaking, an ARMA$(p,q)$ process taking into account (seasonal) differencing. There are a total of 6 hyperparameters to define in a Samira model:
-
-* $q$ for the order of the AR component
-* $p$ for the order of the MA component
-* $d$ for the number of differencing
-* $D$ for the number of seasonal differencing
+* $q$ for the order of the AR component.
+* $p$ for the order of the MA component.
+* $d$ for the number of differencing.
+* $D$ for the number of seasonal differencing.
 * $Q$ for the order of the AR component on a seasonal level (AR process on the series $(X_{ts})$), where $s$ is the frequency of the season.
-* P for the order of the MA component on a seasonal level (as above for MA)
+* $P$ for the order of the MA component on a seasonal level (as above for MA).
 
-Once we defined the hyperparameters of the Samira model, the parameters are estimated by Gaussian MLE.
+Once we defined the hyperparameters of the SARIMA model, the parameters are estimated by Gaussian MLE.
 
 ## Samira Model Building
 
@@ -135,7 +137,7 @@ ggarrange(fit_lin_plot, fit_quad_plot, res_lin_plot, res_quad_plot, nrow = 2, nc
 ```
 Visually the model with quadratic dependency on time seems to be a better approximation of the time series, but still not a perfect approximation which can be seen in the residuals. Looking back at Figure (\@ref(fig:timeseriesplot)), also a piecewise linear trend might be plausible, with a knot around 1960. So in our Samira model, we will analyze the possibilities of differencing once or twice, to adjust for a linear or quadratic trend.
 
-To determine the parameters $p$ and $q$ we look at the (partial) autocorrelation functions (ACF and PACF). The ACF $\rho(h)$ specifies the correlation between $X_t$ and $X_{t+h}$. The PACF $\alpha(h)$ specifies, roughly speaking, the correlation between $X_t$ and $X_{t+h}$ that remains after the correlation due to all the intermediate observations $X_{t+1},...,X_{t+h-1}$. We have the following characteristics.
+To determine the parameters $p$ and $q$ we look at the (partial) autocorrelation functions (ACF and PACF) in Figure (\@ref(fig:PACF)). The ACF $\rho(h)$ specifies the correlation between $X_t$ and $X_{t+h}$. The PACF $\alpha(h)$ specifies, roughly speaking, the correlation between $X_t$ and $X_{t+h}$ that remains after the correlation due to all the intermediate observations $X_{t+1},...,X_{t+h-1}$. We have the following characteristics.
 
 ```{r charactable}
 # Create data frame with ACF and PACF properties
@@ -149,11 +151,91 @@ table_df <- data.frame(
 kable(table_df, 
       col.names = c("Model", "ACF", "PACF"), 
       row.names = FALSE,
-      caption = "Summary of ACF and PACF characteristics for AR, MA, and ARMA models.")
+      caption = "ACF and PACF characteristics for AR, MA, and ARMA models.")
+```
+
+```{r PACF, fig.width=9, fig.height=4, fig.cap="ACF and PACF of temperature anomalies time series."}
+# Compute ACF and PACF of ts_temp
+acf_ts <- acf(ts_temp, plot = FALSE)
+pacf_ts <- pacf(ts_temp, plot = FALSE)
+
+par(mfrow = c(1, 2))
+plot(acf_ts, main = "ACF")
+plot(pacf_ts, main = "PACF")
+```
+First, note that the ACF plot starts at lag zero and the PACF plot starts at lag one. We observe an exponential like decay in the ACF plot and a cut off at lag 2, suggesting an ARMA(2,0) model according to Table (\@ref(tab:charactable)). Following Figure (\@ref(fig:trendanalyse)) we chose to analyze the possibilities of differencing once or twice, hence so far we have the possible models ARIMA(2,1,0) and ARIMA(2,2,0).
+
+To complete our SARIMA model we have to account for the seasonality. In Figure (\@ref(fig:timeseriesplot)) we did not observe a clear sign of seasonality. The reason for no seasonality could be that the values of our time series are anomalies from a reference value (global average). However, as most of the earths landmass is on the northern hemisphere, there still may be a summer/winter difference in the temperature anomalies and therefore seasonality in the time series. Hence we decide to compare both possibilities, $D = 1$ (seasonal differencing) and $D = 0$ (no seasonal differencing).
+
+To determine the parameters $P$ and $Q$, we again look at the ACF and PACF plots as for $p$ and $q$. However since we want to analyze the relationship between yearly observations from the same month we perform a seasonal differencing with lag 12 (for the months) before looking at ACF and PACF in Figure (\@ref(fig:seasonalanalysis)).
+
+```{r seasonalanalysis, fig.width=9, fig.height=4, fig.cap="ACF and PACF of temperature anomalies time series after applying seasonal differencing with lag 12."}
+# difference time series oce with lag 12 and calculate their acf and pacf
+ts_temp_s = diff(ts_temp, lag = 12)
+acf_ts_s <- acf(ts_temp_s, plot = FALSE)
+pacf_ts_s <- pacf(ts_temp_s, plot = FALSE)
+
+par(mfrow = c(1, 2))
+plot(acf_ts_s, main = "ACF")
+plot(pacf_ts_s, main = "PACF")
+```
+
+In the ACF plot we observe a cut-off after lag one and in the PACF a cut-off after lag two. So we chose to take the parameters $P=2$ and $Q = 1$. Therefore we now have four possibilities to parametrize our SARIMA$(p,d,q,P,D,Q)$ model:
+
+* SARIMA(2,1,0,2,0,1)
+* SARIMA(2,2,0,2,0,1)
+* SARIMA(2,1,0,2,1,1)
+* SARIMA(2,2,0,2,1,1)
+
+To decide which model to take, we look at their AIC as well as their predictive power. To analyze their predictive power, we take $\frac{2}{3}$ of the dataset as training data and then fit the above SAMIRA models for the training data and calculate the MSE of a one step forecast. Iteratively in each step we add the next observation of the time series to the training data and again calculate the MSE of a one step forecast for the above models, until we reach the end of the time series. Finally we compare the averages over the MSE's for each model to compare their predctive power.
+
+```{r modelcomp}
+# fit potential models
+ts_temp_fit_1_0 = Arima(ts_temp, order = c(2, 1, 0), seasonal = c(2, 0, 1))
+ts_temp_fit_2_0 = Arima(ts_temp, order = c(2, 2, 0), seasonal = c(2, 0, 1))
+ts_temp_fit_1_1 = Arima(ts_temp, order = c(2, 1, 0), seasonal = c(2, 1, 1))
+ts_temp_fit_2_1 = Arima(ts_temp, order = c(2, 2, 0), seasonal = c(2, 1, 1))
+# calculate AIC of models
+AIC_1_0 = AIC(ts_temp_fit_1_0)
+AIC_2_0 = AIC(ts_temp_fit_2_0)
+AIC_1_1 = AIC(ts_temp_fit_1_1)
+AIC_2_1 = AIC(ts_temp_fit_2_1)
+AIC = c(AIC_1_0, AIC_2_0, AIC_1_1, AIC_2_1)
+
+fit_comp = as.data.frame(AIC)
+kable(fit_comp)
+```
+
+Go for first because lowest AIC and lowest predictive error?
+
+Another possibility to chose the parameters of a SAMIRA model is using the automated model selection function `auto.arima` from the `forecast` R package. It searches the best model according to an information criterion (AIC in our case). 
+
+```{r autoselect}
+#auto.arima(ts_temp)
+```
+
+For our time series, `auto.arima` selects an SARIMA(2,1,1,2,0,0) model. We can compare it to our chosen model, by AIC and its predictive power.
+
+```{r compareauto}
 
 ```
 
 
+
 ## Samira Model Diagnostics
+
+To further evaluate our chosen SARIMA(TBD) model, we look at some diagnostic plots. As the residuals should be white noise, we look the ACF and PACF plots for the residuals in Figure (\@ref(fig:resACF)).
+
+```{r resACF, fig.cap="ACF and PACF of the residuals of the SARIMA(TBD) model for the temperature anomalies time series."}
+
+```
+
+Furthermore the residuals should roughly be Gaussian, hence we look at the normal QQ-plot of the residuals in Figure (\@ref(fig:resQQ)).
+
+```{r resQQ}
+
+```
+
+As a last diagnostic plot we visually compare a simulation from our fitted model with the original time series.
 
 # Global Warming Forecast and Scenarios
