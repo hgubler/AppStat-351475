@@ -26,8 +26,10 @@ As a first exploratory tool, we look at the plot of the time series in Figure (\
 ```{r timeseriesplot, fig.cap="Time series of temperature anomalies from 1880 to 2022"}
 library("tidyverse")
 library("knitr")
+library("car")
 library("DescTools")
 library("forecast")
+library("nlme")
 # load data and prepare it for time series
 data_temp = read.csv(file = "data/temperature.csv")
 data_temp = pivot_longer(data_temp, cols = c("Jan", "Feb", "Mar", 
@@ -41,9 +43,15 @@ ts_temp = ts(temp, start = 1880, frequency = 12) # time series with monthly freq
 ggplot(data = ts_temp, aes(x = time(ts_temp), y = ts_temp)) + 
   geom_line() +
   labs(x = "year", y = "temperature anomalies")
+
+
+# only take observations from 1950
+data_temp <- subset(data_temp, Year >= 1950)
+temp = as.numeric(data_temp$temp) # numerical vector of raw values
+ts_temp = ts(temp, start = 1950, frequency = 12) # time series with monthly frequency
 ```
 
-We see a clear upwards trend in our time series, starting from 1960 up to today. On the other side there is no clear sign of seasonality (a repeating yearly pattern of the time series). 
+We see a clear upwards trend in our time series, starting from around 1950 up to today. We therefore base our analysis on the time frame from 1950 to 2022 by only selecting the temperature data starting at 1950. Furthermore we do not observe a clear sign of seasonality (a repeating yearly pattern of the time series). 
 
 # Time Series SARIMA Model
 
@@ -87,7 +95,7 @@ $$
 X_t = Z_t + \phi_1 X_{t-1} + ... +  \phi_p X_{t-p}
 $$
 
-So an AR$(p)$ process can be interpreted as a weighted average of the last $p$ observations plus some white noise. A MA$(q)$ process can be interpreted as a weighted average of the last $q$ noise observations, so its based on the error that the process was not able to predict. An example for an MA$(q)$ process is someone designing a cake recipe, where the amount of an ingredient depends on the amount that was missing/too much in the last try. 
+So an AR$(p)$ process can be interpreted as a weighted average of the last $p$ observations plus some white noise. A MA$(q)$ process can be interpreted as a weighted average of the last $q$ noise observations, so its based on the error that the process was not able to predict. An example for an MA$(q)$ process is the procedure of designing a recipe, where the amount of an ingredient depends on the amount that was missing/too much in the last try. 
 
 We denote the combination of an AR$(p)$ and MA$(q)$ process as ARMA$(p,q)$. If we include differencing by $d$ times, we denote the model by Arima$(p,d,q)$. Then, a Samira model is, roughly speaking, an ARMA$(p,q)$ process taking into account (seasonal) differencing. There are a total of 6 hyperparameters to define in a SARIMA model, denoted by SARIMA$(p,d,q,P,D,Q)$ where we use
 
@@ -98,7 +106,7 @@ We denote the combination of an AR$(p)$ and MA$(q)$ process as ARMA$(p,q)$. If w
 * $Q$ for the order of the AR component on a seasonal level (AR process on the series $(X_{ts})$), where $s$ is the frequency of the season.
 * $P$ for the order of the MA component on a seasonal level (as above for MA).
 
-Once we defined the hyperparameters of the SARIMA model, the parameters are estimated by Gaussian MLE.
+Once we defined the hyperparameters of the SARIMA model, the parameters are estimated by Gaussian MLE. In the following sections, we allow all our SAMIRA models to include a drift parameter, which acts like an intercept.
 
 ## Samira Model Building
 
@@ -187,55 +195,126 @@ In the ACF plot we observe a cut-off after lag one and in the PACF a cut-off aft
 * SARIMA(2,1,0,2,1,1)
 * SARIMA(2,2,0,2,1,1)
 
-To decide which model to take, we look at their AIC as well as their predictive power. To analyze their predictive power, we take $\frac{2}{3}$ of the dataset as training data and then fit the above SAMIRA models for the training data and calculate the MSE of a one step forecast. Iteratively in each step we add the next observation of the time series to the training data and again calculate the MSE of a one step forecast for the above models, until we reach the end of the time series. Finally we compare the averages over the MSE's for each model to compare their predctive power.
+To decide which model to take, we look at their AIC as well as their predictive power. To analyze their predictive power, we take $\frac{2}{3}$ of the dataset as training data and then fit the above SAMIRA models for the training data and calculate the MSE of a one step forecast. Iteratively in each step we add the next observation of the time series to the training data and again calculate the MSE of a one step forecast for the above models, until we reach the end of the time series. Finally we compute the averages over the MSE's for each model. Table (\@ref(tab:modelcomp)) shows the AIC and average predictive error for each SARIMA model.
 
-```{r modelcomp}
+```{r modelcomp, warning=FALSE}
 # fit potential models
-ts_temp_fit_1_0 = Arima(ts_temp, order = c(2, 1, 0), seasonal = c(2, 0, 1))
-ts_temp_fit_2_0 = Arima(ts_temp, order = c(2, 2, 0), seasonal = c(2, 0, 1))
-ts_temp_fit_1_1 = Arima(ts_temp, order = c(2, 1, 0), seasonal = c(2, 1, 1))
-ts_temp_fit_2_1 = Arima(ts_temp, order = c(2, 2, 0), seasonal = c(2, 1, 1))
+ts_temp_fit_1_0 = Arima(ts_temp, order = c(2, 1, 0), seasonal = c(2, 0, 1), include.drift = TRUE)
+ts_temp_fit_2_0 = Arima(ts_temp, order = c(2, 2, 0), seasonal = c(2, 0, 1), include.drift = TRUE)
+ts_temp_fit_1_1 = Arima(ts_temp, order = c(2, 1, 0), seasonal = c(2, 1, 1), include.drift = TRUE)
+ts_temp_fit_2_1 = Arima(ts_temp, order = c(2, 2, 0), seasonal = c(2, 1, 1), include.drift = TRUE)
 # calculate AIC of models
 AIC_1_0 = AIC(ts_temp_fit_1_0)
 AIC_2_0 = AIC(ts_temp_fit_2_0)
 AIC_1_1 = AIC(ts_temp_fit_1_1)
 AIC_2_1 = AIC(ts_temp_fit_2_1)
 AIC = c(AIC_1_0, AIC_2_0, AIC_1_1, AIC_2_1)
-
 fit_comp = as.data.frame(AIC)
-kable(fit_comp)
+load("data/mean_pred.RData")
+pred_error = as.numeric(mean_pred$`rowMeans(err)`)
+fit_comp$`Predictive Error` = pred_error[1:4]
+rownames(fit_comp) = c("SARIMA(2,1,0,2,0,1)", "SARIMA(2,2,0,2,0,1)", 
+                       "SARIMA(2,1,0,2,1,1)", "SARIMA(2,2,0,2,1,1)")
+kable(fit_comp, digits = 4, caption = "AIC and average predictive error for the SARIMA models.")
 ```
-
-Go for first because lowest AIC and lowest predictive error?
+The first model (SARIMA(2,1,0,2,0,1)) has the lowest AIC and the second lowest predictive error, while the SARIMA(2,1,0,2,1,1) model has the second lowest AIC and the lowest predictive error. Therefore we proceed with these two models.
 
 Another possibility to chose the parameters of a SAMIRA model is using the automated model selection function `auto.arima` from the `forecast` R package. It searches the best model according to an information criterion (AIC in our case). 
 
 ```{r autoselect}
-#auto.arima(ts_temp)
+auto_sarima = auto.arima(ts_temp)
 ```
 
-For our time series, `auto.arima` selects an SARIMA(2,1,1,2,0,0) model. We can compare it to our chosen model, by AIC and its predictive power.
+For our time series, `auto.arima` selects a SARIMA(2,1,3,1,0,0) model (with drift). We compare it to our current SARIMA models by AIC and its predictive power.
 
 ```{r compareauto}
-
+AIC = c(AIC(ts_temp_fit_1_0), AIC(ts_temp_fit_1_1), AIC(auto_sarima))
+compareauto = as.data.frame(AIC)
+compareauto$`Predictive Error` = pred_error[c(1,3,5)]
+rownames(compareauto) = c("SARIMA(2,1,0,2,0,1)", "SARIMA(2,1,0,2,1,1)", "SARIMA(2,1,3,1,0,0) (selected by auto.arima)")
+kable(compareauto, digits = 4, caption = "AIC and average predictive error for the SARIMA models.")
 ```
 
+Based on this table it is hard to decide which model to chose, as none dominates the others across both criterions. Hence we decide based on their residual diagnostics. The residuals of a SARIMA model should be white noise and we therefore we look at the ACF and PACF plots of the residuals for the three models from Table (\@ref(tab:compareauto)).
 
-
-## Samira Model Diagnostics
-
-To further evaluate our chosen SARIMA(TBD) model, we look at some diagnostic plots. As the residuals should be white noise, we look the ACF and PACF plots for the residuals in Figure (\@ref(fig:resACF)).
-
-```{r resACF, fig.cap="ACF and PACF of the residuals of the SARIMA(TBD) model for the temperature anomalies time series."}
-
+```{r residcomp, fig.height=8, fig.width= 9, fig.cap="ACF and PACF plot of the resodials to compare the SARIMA models."}
+par(mfrow = c(3,2))
+acf(ts_temp_fit_1_0$residuals, main = "SARIMA(2,1,0,2,0,1)")
+pacf(ts_temp_fit_1_0$residuals, main = "SARIMA(2,1,0,2,0,1)")
+acf(ts_temp_fit_1_1$residuals, main = "SARIMA(2,1,0,2,1,1)")
+pacf(ts_temp_fit_1_1$residuals, main = "SARIMA(2,1,0,2,1,1)")
+acf(auto_sarima$residuals, main = "SARIMA(2,1,3,1,0,0)")
+pacf(auto_sarima$residuals, main = "SARIMA(2,1,3,1,0,0)")
 ```
 
-Furthermore the residuals should roughly be Gaussian, hence we look at the normal QQ-plot of the residuals in Figure (\@ref(fig:resQQ)).
+Based on the residuals, we decide to go for the SARIMA(2,1,3,1,0,0) model, as the PACF plot seems to look slightly better compared to the others. Therefore we proceed with this model.
 
-```{r resQQ}
+One more assumption to check is that the residuals should roughly be Gaussian, hence we look at the normal QQ-plot of the residuals in Figure (\@ref(fig:resQQ)).
 
+```{r resQQ, fig.cap="Normal QQ-plot for the residuals of the SARIMA(2,1,3,1,0,0) model.", fig.height=4, fig.width=4}
+res = as.numeric(auto_sarima$residuals)
+residuals = as.data.frame(res)
+ggplot(residuals, aes(sample = res)) +
+  stat_qq() + 
+  stat_qq_line() + 
+  labs(x = "theoretical quantiles", y = "residuals quantiles") + 
+  ggtitle("Normal QQ Plot for Residuals")
 ```
 
-As a last diagnostic plot we visually compare a simulation from our fitted model with the original time series.
+The normal QQ-plot looks fine and therefore we may assume that the residuals of the SARIMA(2,1,3,1,0,0) model are approximately normal. Therefore we keep this model to build forecasts in the next section. In Table (\@ref(tab:coeftable)) we look at the coefficient of our final model.
+
+```{r coeftable}
+coef_table = as.data.frame(coef(auto_sarima))
+colnames(coef_table) = ""
+kable(coef_table, digits = 4, caption = "Coefficients of the SARIMA(2,1,3,1,0,0) model.")
+```
+
+Note that having a non-zero coefficient for the $P$ (0.0079) means that the prediction for $X_t$ depends linearly on the value of $X_{t-12}$, so we observe a yearly seasonality in our time series (but not a very strong one as the corresponding coefficient is close to 0).
+
+In the next section we will use our final SARIMA model to produce short term temperature forecasts and analyze the form of the trend (e.g. quadratic).
 
 # Global Warming Forecast and Scenarios
+
+As a first forecast visualization, we plot the time series together with a 50 years forecast of our SARIMA(2,1,3,1,0,0) model in Figure (\@ref(fig:forecastplot)).
+
+```{r forecastplot, fig.height=4, fig.width=7, fig.cap="Forecast of our temperature anomalies time series with our SARIMA model in blue. "}
+preds = forecast(auto_sarima, 12 * 50, level = 1)
+autoplot(ts_temp) + autolayer(preds)
+```
+
+We see that our SARIMA model forecasts an upwards trend for the temperature anomalies in the next 50 years. To test the behaviour of this upwards trend, we use time series regression.
+
+## Time Series Regression
+
+In this section we use a generalized least squares (gls) model 
+$$
+Y = X\beta + \epsilon, \quad \epsilon \sim \mathcal{N}(0, \sigma^2 \Sigma),
+$$
+where $\Sigma$ will allow for a dependency structure between observations (the observations of our temperature anomalies time series are obviously not independent). We specify the dependency structure through our SARIMA model of the time series. We use the `corARMA` function from the `nlme` package to estimate $\Sigma$ based on the parameters $p$ and $q$ of our SARIMA model. The predictors in our model are the `time` and the factor variable `month`. Furthermore we add an exponential dependence on time in our model and perform an anova type two test to test whether we have an exponential dependence on time or not. 
+
+```{r expdep}
+load("data/lin_anova.RData")
+load("data/square_anova.RData")
+load("data/exp_anova.RData")
+kable(exp_anova, digits = 4, caption = "Type two anova test to test for our generalized least squares model including an exponential dependence on time.")
+```
+
+We see that the anova table (\@ref(tab:expdep)) suggests that there is no exponential dependence on time and we therefore refute the hypothesis of an exponential trend. Furthermore, the table suggests that a linear dependence on time seems important. 
+
+In Figure (\@ref(fig:trendanalyse)) we saw that a quadratic trend may be plausible for our time series. Therefore we again fit the same gls model, but now include a quadratic dependence on time instead of an exponential dependence. After that we look at the type two anova table as before.
+
+```{r quaddep}
+kable(square_anova, digits = 4, caption = "Type two anova test to test for our generalized least squares model including a quadratic dependence on time.")
+```
+
+According to the anova table (\@ref(tab:quaddep)), a quadratic dependence on time is significant.
+
+We therefore conclude that a quadratic dependence on time might be a plausible scenario for the future development of temperature anomalies, if we do not change our behavior. 
+
+# Conclusion
+
+In this report, we use a SARIMA model for a time series with temperature anomalies from 1950 to 2022. This model allows us to produce forecasts for the temperature development in the future. We detected a light seasonal effect in the temperature anomalies that can possibly be explained with the fact that most of the earth's landmass is in the northern hemisphere and hence anomalies in the summer behave differently than anomalies in the winter.
+
+Furthermore, by using time series regression, we were able to refute the hypothesis of an exponential trend on time and suggested that a quadratic trend might be a more plausible scenario. However, these forecasts should be taken with caution as it is obviously extremely difficult to predict the form of the future global warming as it strongly depends on factors as political policies as well as natural feedback mechanisms.
+
+
