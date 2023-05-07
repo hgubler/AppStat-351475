@@ -15,11 +15,11 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 
 Global warming has been a big topic of discussion in the recent years, presenting a difficult challenge that humanity must address. Forecasting future scenarios is an important step towards addressing this challenge, as it allows us to adapt our current behavior and take appropriate steps to reduce global warming.
 
-In this report we use time series analysis to produce short term forecasts of the temperature development. Furthermore we try to determine the form of global warming (more specifically, we will compare the hypotheses of linear, quadratic or exponential growth). In the first part of the report we model the temperature development data using the SARIMA method, hence we dedicate this part to figure out appropriate parameters for this method. Once we have the SARIMA model, we use it for forecasts of global warming as well as comparing different scenarios in the second part of the report.
+In this report we use time series analysis to produce short term forecasts of the temperature development. Furthermore we try to determine the form of global warming (more specifically, we will compare the hypotheses of linear, quadratic or exponential growth). In the first part of the report we model the temperature development using the SARIMA method, therefore we dedicate this part to figure out appropriate parameters for this method. Once we have the SARIMA model, we use it for forecasts of global warming as well as a comparison of different scenarios.
 
 # Data Exploration
 
-The data consists of monthly temperature anomalies from 1880 to 2022. In ecology, anomalies are defined as departures from a reference value. In our case, the reference value (probably) corresponds to monthly averages from some earlier time point up to 1960 (where significant increase in temperature is visible due to the industrialization). The temperature from which the anomalies are calculated is a global average. 
+The data consists of monthly temperature anomalies from 1880 to 2022. In ecology, anomalies are defined as departures from a reference value which, in our case, (probably) corresponds to monthly averages from some earlier time point up to 1960 (where significant increase in temperature is visible due to the industrialization). The temperature from which the anomalies are calculated is a global average. 
 
 As a first exploratory tool, we look at the plot of the time series in Figure (\@ref(fig:timeseriesplot)).
 
@@ -269,7 +269,7 @@ colnames(coef_table) = ""
 kable(coef_table, digits = 4, caption = "Coefficients of the SARIMA(2,1,3,1,0,0) model.")
 ```
 
-Note that having a non-zero coefficient for the $P$ (sar1 = 0.0079) means that the prediction for $X_t$ depends linearly on the value of $X_{t-12}$, so we observe a yearly seasonality in our time series (but not a very strong one as the corresponding coefficient is close to 0).
+Note that having the non-zero seasonal coefficient sar1 = 0.0079 (since $P$ = 1) means that the prediction for $X_t$ depends linearly on the value of $X_{t-12}$, so we observe a yearly seasonality in our time series (but not a very strong one as the corresponding coefficient is close to 0).
 
 In the next section we will use our final SARIMA model to produce short term temperature forecasts and analyze the form of the trend (e.g. quadratic).
 
