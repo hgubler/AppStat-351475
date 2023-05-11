@@ -1,0 +1,97 @@
+---
+title: "rough_work"
+author: "Hannes"
+date: "2023-05-10"
+output: 
+  bookdown::html_document2:
+    toc: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE)
+```
+
+# Data
+
+```{r}
+library("readr")
+library("tidyverse")
+data = read_csv("data/covid_deaths_usafacts.csv")
+
+# remove unneeded columns
+data = data %>%
+  dplyr::select(-StateFIPS, -countyFIPS, -"County Name")
+# group data by state instead of by country
+data = data %>%
+  group_by(State) %>%
+  summarize_all(sum)
+```
+
+plot deaths per day from 22.01.2020 to 29.04.2023 nationwide
+
+```{r}
+# nationwide data 
+nation_data = data %>%
+  dplyr::select(-State)
+nation_data = colSums(nation_data)
+# create data such that we have deaths per day instead of cumulative deaths over time
+diff_nation_data = c(nation_data[1], diff(nation_data))
+plot_data = as.data.frame(diff_nation_data)
+plot_data$time = 1:length(diff_nation_data)
+ggplot(data = plot_data, aes(x = time, y = diff_nation_data)) + 
+  geom_line() + 
+  scale_x_continuous(breaks = c(1, 183, 368, 550, 735, 917, 1102), 
+                     labels = c("22.01.2020", "22.07.2020", "22.01.2021",
+                                "22.07.2021","22.01.2022", "22.07.2022", 
+                                "22.01.2023"))
+```
+See that its very wiggly and some times even negative number of deaths per day, which is certainly not possible. This phenomenon occurs because, when counting the Covid deaths over time, certain death cases from a particular day may be subtracted due to counters believing they had overcounted on previous days. As a result, this can lead to a negative count of deaths on a given day.
+
+To tackle this issue we apply smoothing to our data using kernel methods with a Gaussian kernel and bandwidth 7 (where the days are numerated from one to $n$ where $n$ is the total number of days in our data). We apply smoothing to each state separately.
+```{r smoothing}
+y = as.matrix(data[,-1])
+for (i in 1:nrow(y)) {
+  smoothed_states = ksmooth(x = 1:ncol(y), 
+        y = y[i, ],
+        bandwidth = 7,
+        kernel = "normal")
+  y[i, ] = smoothed_states$y
+}
+smoothed_data = as.data.frame(y)
+smoothed_data$state = data$State
+nation_data = colSums(y)
+# create data such that we have deaths per day instead of cumulative deaths over time
+diff_nation_data = c(nation_data[1], diff(nation_data))
+plot_data = as.data.frame(diff_nation_data)
+plot_data$time = 1:length(diff_nation_data)
+ggplot(data = plot_data, aes(x = time, y = diff_nation_data)) + 
+  geom_line() + 
+  scale_x_continuous(breaks = c(1, 183, 368, 550, 735, 917, 1102), 
+                     labels = c("22.01.2020", "22.07.2020", "22.01.2021",
+                                "22.07.2021","22.01.2022", "22.07.2022", 
+                                "22.01.2023"))
+```
+This already looks better and we got rid of negative values. So from now on we work with the smoothed values for the death numbers. 
+
+
+
+We perform PCA on logarithm of cumulative Covid deaths. TBD: explain why take logarithm. In Figure (\@ref(fig:cumulativedeath)) we see the logarithm of the cumulative deaths.
+
+```{r cumulativedeath}
+smoothed_data[, -ncol(smoothed_data)] = sapply(smoothed_data[, -ncol(smoothed_data)], log) 
+smoothed_nation_cdf = colSums(smoothed_data[, -ncol(smoothed_data)])
+ggplot(mapping = aes(x = 1:length(smoothed_nation_cdf), y = smoothed_nation_cdf)) +
+  geom_line() + 
+  labs(x = "time", y = "logged cumulative deaths")
+```
+
+
+```{r PCA}
+svd_mat = as.matrix(smoothed_nation_data)
+col_means = colMeans(svd_mat)
+
+# Center matrix by columns
+svd_mat_centered <- svd_mat - col_means
+```
+
+
