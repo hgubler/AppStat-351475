@@ -87,7 +87,8 @@ ggplot(mapping = aes(x = 1:length(smoothed_nation_cdf), y = smoothed_nation_cdf)
 
 
 ```{r PCA}
-svd_mat = as.matrix(smoothed_nation_data)
+svd_mat = as.matrix(smoothed_data[, -ncol(smoothed_data)])
+svd_mat = as.numeric(svd_mat)
 col_means = colMeans(svd_mat)
 
 # Center matrix by columns
