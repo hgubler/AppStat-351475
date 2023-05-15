@@ -290,7 +290,20 @@ In this section we use a generalized least squares (gls) model
 $$
 Y = X\beta + \epsilon, \quad \epsilon \sim \mathcal{N}(0, \sigma^2 \Sigma),
 $$
-where $\Sigma$ will allow for a dependency structure between observations (the observations of our temperature anomalies time series are obviously not independent). We specify the dependency structure $\Sigma$ through our SARIMA model of the time series, where we use the `corARMA` function from the `nlme` package to estimate $\Sigma$ based on the parameters $p$ and $q$ of our SARIMA model. The predictors in our model are `time` and the factor variable `month`. Furthermore we add an exponential dependence on time in our model and perform an anova type two test to test whether we have an exponential dependence on time or not. 
+where $\Sigma$ will allow for a dependency structure between observations (the observations of our temperature anomalies time series are obviously not independent) to test whether we have a linear, quadratic or exponential trend in our temperature anomalies. To estimate the dependency structure $\Sigma$ we employ an ARMA model for the residuals of a linear model with the temperature anomalies as response. The predictors of the linear model are `month` and `time`, as well as quadratic and exponential dependencies on `time` as predictors. The reason why we only use an ARMA model (instead of a full SARIMA model) is that by fitting a linear model for the temperature anomalies we hope to remove the trend, and we remove the seasonality by having `month` as predictor. Therefore we can hope that our time series of the residuals is stationary.
+
+So first in Figure (\@ref(fig:linreg)) we look at the time series of the residuals and its ACF and PACF to determine the parameters of the ARMA model.
+
+```{r linreg, fig.cap="Time series of the residuals corresponding to the linear model with the temperature anomalies as response and time, month, a quadratic and an exponential dependency on time as predictors."}
+lm_data$time = lm_data$time / 10
+full_reg = lm(y ~ time + I(time^2) + I(exp(time)) + month, data = lm_data)
+residuals = full_reg$residuals
+ts_residuals = ts(residuals, start = 1950, frequency = 12)
+PlotACF(ts_residuals, main = "Residuals Time Series")
+```
+First we note that, as expected, our time series looks more or less stationary and there is no clear sign of seasonality and which justifies an ARMA model. Furthermore, by looking at the ACF and PACF plots, we decide to go for an AR(2) model (according to Table (\@ref(tab:charactable))). 
+
+To estimate the dependency structure $\Sigma$ for our gls model we use the `corARMA` function from the `nlme` with our AR(2) model. The predictors in our gls model are `time` and the factor variable `month`. Furthermore we add an exponential dependence on time in our model and perform an anova type two test to test whether we have an exponential dependency on time or not. 
 
 ```{r expdep}
 load("data/lin_anova.RData")
@@ -299,7 +312,7 @@ load("data/exp_anova.RData")
 kable(exp_anova, digits = 4, caption = "Type two anova test to test for our generalized least squares model including an exponential dependence on time.")
 ```
 
-We see that the anova table (\@ref(tab:expdep)) suggests that there is no exponential dependence on time and we therefore refute the hypothesis of an exponential trend. Furthermore, the table suggests that a linear dependence on time seems important. 
+We see that the anova Table (\@ref(tab:expdep)) suggests that there is no exponential dependency on time and therefore we refute the hypothesis of an exponential trend. Furthermore, the table suggests that a linear dependence on time seems important. 
 
 In Figure (\@ref(fig:trendanalyse)) we saw that a quadratic trend may be plausible for our time series. Therefore we again fit the same gls model, but now include a quadratic dependence on time instead of an exponential dependence. After that we look at the type two anova table as before.
 
@@ -307,7 +320,7 @@ In Figure (\@ref(fig:trendanalyse)) we saw that a quadratic trend may be plausib
 kable(square_anova, digits = 4, caption = "Type two anova test to test for our generalized least squares model including a quadratic dependence on time.")
 ```
 
-According to the anova table (\@ref(tab:quaddep)), a quadratic dependence on time is significant.
+According to the anova Table (\@ref(tab:quaddep)), a quadratic dependency on time is significant.
 
 We therefore conclude that a quadratic dependence on time might be a plausible scenario for the future development of temperature anomalies, if we do not change our behavior. 
 

@@ -1,6 +1,7 @@
 library("knitr")
 library("car")
 library("nlme")
+library("tidyverse")
 # load data and prepare it for time series
 data_temp = read.csv(file = "data/temperature.csv")
 data_temp = pivot_longer(data_temp, cols = c("Jan", "Feb", "Mar", 
@@ -14,8 +15,8 @@ data_temp <- subset(data_temp, Year >= 1950)
 lm_data = data.frame(y = temp, 
                      month = as.factor(rep(1:12,length(temp)/12)),
                      time = 1:length(temp))
-# calculate correlattion structure using p and q parameters from sarima model
-corr_struct = corARMA(form = ~ time, p = 2, q = 3)
+# calculate correlattion structure using an AR(2) model that we got from residual time series
+corr_struct = corARMA(form = ~ time, p = 2, q = 0)
 # fit gls and calculate anova for square dependence
 glsfit_lin = gls(y ~ time + month, data = lm_data, corr = corr_struct, method = "ML")
 lin_anova = Anova(glsfit_lin, type = 2)
@@ -26,6 +27,7 @@ square_anova = Anova(glsfit_square, type = 2)
 lm_data$time = lm_data$time / 10 # so we don't have too big values, otherwise get inf for exp(time)
 glsfit_exp = gls(y ~ time + I(exp(time)) + month, data = lm_data, corr = corr_struct, method = "ML")
 exp_anova = Anova(glsfit_exp, type = 2)
+# store results in dataframe and export
 lin_anova = as.data.frame(lin_anova)
 square_anova = as.data.frame(square_anova)
 exp_anova = as.data.frame(exp_anova)

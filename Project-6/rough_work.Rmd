@@ -75,24 +75,38 @@ This already looks better and we got rid of negative values. So from now on we w
 
 
 
-We perform PCA on logarithm of cumulative Covid deaths. TBD: explain why take logarithm. In Figure (\@ref(fig:cumulativedeath)) we see the logarithm of the cumulative deaths.
+We perform PCA on logarithm of cumulative Covid deaths. TBD: explain why take logarithm. To take the log of the data, we start our data only from 03.04.2023, the date when in every state we have at least one covid death and hence we wont take log(0). Furthermore rescale the data such that we have number of deaths by capita in each state to bring the numbers on the same scale
 
 ```{r cumulativedeath}
+smoothed_data = smoothed_data[, 73:ncol(smoothed_data)]
+populations = c(733583, 5074296, 3045637, 7359197, 39029342, 5839926, 3626205,
+                671803, 1018396, 22244823, 10912876, 1440196, 3200517, 1939033,
+                12582032, 6833037, 2937150, 4512310, 4590241, 6981974, 6164660, 
+                1385340, 1385340, 5717184, 6177957, 2940057, 1122867, 
+                10698973, 779261, 1967923, 1395231, 9261699, 2113344, 3177772 ,19677151, 
+                11756058, 4019800, 4240137, 12972008, 1093734, 5282634, 909824, 
+                7051339, 30029572, 3380800, 8683619, 647064, 7785786, 5892539,
+                1775156, 581381)
+for (i in 1:nrow(smoothed_data)) {
+  smoothed_data[i, ] = as.numeric(smoothed_data[i, ]) / populations[i]
+}
 smoothed_data[, -ncol(smoothed_data)] = sapply(smoothed_data[, -ncol(smoothed_data)], log) 
-smoothed_nation_cdf = colSums(smoothed_data[, -ncol(smoothed_data)])
-ggplot(mapping = aes(x = 1:length(smoothed_nation_cdf), y = smoothed_nation_cdf)) +
-  geom_line() + 
-  labs(x = "time", y = "logged cumulative deaths")
 ```
 
 
 ```{r PCA}
 svd_mat = as.matrix(smoothed_data[, -ncol(smoothed_data)])
-svd_mat = as.numeric(svd_mat)
-col_means = colMeans(svd_mat)
-
 # Center matrix by columns
-svd_mat_centered <- svd_mat - col_means
+svd_mat_centered = scale(svd_mat, center = TRUE, scale = FALSE)
+svd = svd(svd_mat_centered)
+eig_val = svd$v
+par(mfrow = c(1,3))
+x = 1:nrow(eig_val) 
+plot(x, eig_val[, 1], type = "l")
+plot(x, eig_val[, 2], type = "l")
+plot(x, eig_val[, 3], type = "l")
 ```
+
+
 
 
