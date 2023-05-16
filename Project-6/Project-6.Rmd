@@ -13,3 +13,298 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 
 # Introduction
 
+The COVID-19 pandemic has had a huge impact on the world, included to the United States. Therefore it is crucial to analyze the underlying patterns of the pandemic to be better prepared for similar scenarios in the future.
+
+In this report, we will work with daily Covid death data across all states of the United States. The data is from USAFacts and can be downloaded on their [website](https://usafacts.org/visualizations/coronavirus-covid-19-spread-map). We will analyze the data using Principal Component Analysis (PCA), which is a popular technique to analyze data with a high number of dimensions (in our case the dimension of our data is the number of days in between 22.01.2020 and 29.04.2023, hence 1194 dimensions). We will interpret the first three principal components of our data as well as the low dimensional plot, which displays the data across the first two principal components in our case.
+
+# Exploratory Data Exploration
+
+Our data contains the cumulative number of Covid deaths for each state (observations in rows). In Figure (\@ref(fig:dailydeaths)) we see the total number of Covid deaths in the US per day, which we get from summing up all state deaths and then differencing the cumulative data.
+
+```{r dataprep}
+library("readr")
+library("tidyverse")
+data = read_csv("data/covid_deaths_usafacts.csv")
+
+# remove unneeded columns
+data = data %>%
+  dplyr::select(-StateFIPS, -countyFIPS, -"County Name")
+# group data by state instead of by country
+data = data %>%
+  group_by(State) %>%
+  summarize_all(sum)
+```
+
+```{r dailydeaths, fig.cap="Daily Covid deaths per capita in the US from 22.01.2020 until 29.04.2023."}
+# nationwide data (sum up all states)
+nation_data = data %>%
+  dplyr::select(-State)
+nation_data = colSums(nation_data)
+# create data such that we have deaths per day instead of cumulative deaths over time
+diff_nation_data = c(nation_data[1], diff(nation_data))
+plot_data = as.data.frame(diff_nation_data)
+plot_data$time = 1:length(diff_nation_data)
+ggplot(data = plot_data, aes(x = time, y = diff_nation_data)) + 
+  geom_line() + 
+  scale_x_continuous(breaks = c(1, 183, 368, 550, 735, 917, 1102), 
+                     labels = c("22.01.2020", "22.07.2020", "22.01.2021",
+                                "22.07.2021","22.01.2022", "22.07.2022", 
+                                "22.01.2023")) + 
+  labs(x = "time", y = "covid deaths")
+```
+
+We observe very non-smooth data and some negative values (indicating a negative number of Covid deaths per day which is certainly not possible). This phenomenon occurs because, when counting the Covid deaths over time, certain death cases from a particular day may be subtracted due to counters believing they had overcounted on previous days.
+
+To tackle this issue we apply smoothing to our data using kernel methods with a Gaussian kernel and bandwidth 7 (where the days are numerated from one to 1194, where 1194 is the total number of days in our data). We apply smoothing to each state separately.
+
+In Figure (\@ref(fig:smoothing)), we replicate the same plot as in Figure (\@ref(fig:dailydeaths)) to review our smoothing results.
+
+```{r smoothing, fig.cap="Smoothed daily Covid deaths per capita in the US from 22.01.2020 until 29.04.2023."}
+y = as.matrix(data[,-1])
+for (i in 1:nrow(y)) {
+  smoothed_states = ksmooth(x = 1:ncol(y), 
+        y = y[i, ],
+        bandwidth = 10,
+        kernel = "normal")
+  y[i, ] = smoothed_states$y
+}
+smoothed_data = as.data.frame(y)
+smoothed_data$state = data$State
+nation_data = colSums(y)
+# create data such that we have deaths per day instead of cumulative deaths over time
+diff_nation_data = c(nation_data[1], diff(nation_data))
+plot_data = as.data.frame(diff_nation_data)
+plot_data$time = 1:length(diff_nation_data)
+ggplot(data = plot_data, aes(x = time, y = diff_nation_data)) + 
+  geom_line() + 
+  scale_x_continuous(breaks = c(1, 183, 368, 550, 735, 917, 1102), 
+                     labels = c("22.01.2020", "22.07.2020", "22.01.2021",
+                                "22.07.2021","22.01.2022", "22.07.2022", 
+                                "22.01.2023")) + 
+  labs(x = "time", y = "covid deaths")
+```
+The smoothed data already looks better and we got rid of negative values. So from now on we work with the smoothed values for the Covid death numbers. 
+
+
+A further preprocessing step, to have more comparable death cases between the states, is to divide all observations from a state by its population on 01.07.2022, taken from [Wikipedia](https://en.wikipedia.org/wiki/List_of_U.S._states_and_territories_by_population). Therefore our data contains now the cumulative number of Covid deaths per capita for each state from 22.01.2020 until 29.04.2023.
+
+```{r normalize}
+# populations by state in the same order as in our data
+populations = c(733583, 5074296, 3045637, 7359197, 39029342, 5839926, 3626205,
+                671803, 1018396, 22244823, 10912876, 1440196, 3200517, 1939033,
+                12582032, 6833037, 2937150, 4512310, 4590241, 6981974, 6164660, 
+                1385340, 10034113, 5717184 , 6177957, 2940057, 1122867, 
+                10698973, 779261, 1967923, 1395231, 9261699, 2113344, 3177772 ,19677151, 
+                11756058, 4019800, 4240137, 12972008, 1093734, 5282634, 909824, 
+                7051339, 30029572, 3380800, 8683619, 647064, 7785786, 5892539,
+                1775156, 581381)
+# divide observations from every state by its population. Last column of dataframe must be
+# excluded because its state indicator.
+per_capita = sweep(smoothed_data[, -ncol(smoothed_data)], 1, populations, FUN = "/")
+smoothed_data[, -ncol(smoothed_data)] = per_capita
+```
+
+As a last preprocessing step, we take the logarithm of our data WHY. Bring data in form s.t. no 0 values.
+STILL TBD BECAUSE HAVE 0 VALUES IN DATA
+
+```{r log}
+# can
+#smoothed_data[, -ncol(smoothed_data)] = log(smoothed_data[, -ncol(smoothed_data)])
+```
+
+```{r stateplots}
+library(RColorBrewer)
+data_long <- gather(smoothed_data, key = "Day", value = "Cases", -state)
+data_long$Day <- as.Date(data_long$Day)
+qual_col_pals = brewer.pal.info[brewer.pal.info$category == 'qual',]
+col_palette = unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))
+set.seed(2)
+col_palette = sample(col_palette, 51)
+ggplot(data_long, aes(x = Day, y = Cases, color = state)) +
+  geom_line() +
+  scale_color_manual(values = col_palette) +
+  labs(y = "Cases per Capita", x = "time" )
+```
+
+
+
+
+# Draft
+
+```{r}
+# find last day with 0 cases for each state
+last_day = rep(0, nrow(data))
+for (i in 1:nrow(data)) {
+  # check if first day is 0 and if yes find the maximal day index which is 0
+  # note that first column is state index
+  if (data[i, 2] == 0) {
+    last_day[i] = max(which(data[i, ] == 0))
+  }
+  # if already a case on first day set to 0
+  else{
+    last_day[i] = 0
+  }
+}
+max_last_day = max(last_day)
+```
+
+
+```{r PCA}
+second_derivative = apply(smoothed_data[, -ncol(smoothed_data)], 1, 
+                          function(row) diff(diff(row)))
+svd_mat = as.matrix(smoothed_data[, -ncol(smoothed_data)])
+svd_mat_sec_der = t(second_derivative)
+# Center matrix by columns
+mu = colMeans(svd_mat)
+mu_sec_der = colMeans(svd_mat_sec_der)
+svd_mat_centered = scale(svd_mat, center = TRUE, scale = FALSE)
+svd_mat_sec_der_cent = scale(svd_mat_sec_der, center = TRUE, scale = FALSE)
+svd = svd(svd_mat_centered)
+svd_sec_der = svd(svd_mat_sec_der_cent)
+eig_val = svd$v
+eig_val_sec_der = svd_sec_der$v
+par(mfrow = c(1,3), main = "original data")
+x = 1:nrow(eig_val) 
+plot(x, eig_val[, 1], type = "l")
+plot(x, eig_val[, 2], type = "l")
+plot(x, eig_val[, 3], type = "l")
+```
+
+```{r PCAsecder}
+par(mfrow = c(1,3), main = "second derivative")
+x = 1:nrow(eig_val_sec_der) 
+plot(x, eig_val_sec_der[, 1], type = "l")
+plot(x, eig_val_sec_der[, 2], type = "l")
+plot(x, eig_val_sec_der[, 3], type = "l")
+```
+
+
+
+```{r lowdimplot}
+score = eig_val[, 1] %*% (svd_mat[1, ] - mu)
+scores = matrix(nrow = 51, ncol = 2)
+for (j in 1:51) {
+  for (i in 1:2) {
+    scores[j, i] = eig_val[, i] %*% (svd_mat[j, ] - mu)
+  }
+}
+voting_results <- c(
+    FALSE,  # AK
+    FALSE,  # AL
+    FALSE,  # AR
+    TRUE,   # AZ
+    TRUE,   # CA
+    TRUE,   # CO
+    TRUE,   # CT
+    TRUE,   # DC
+    TRUE,   # DE
+    FALSE,  # FL
+    FALSE,  # GA
+    TRUE,   # HI
+    FALSE,  # IA
+    FALSE,  # ID
+    TRUE,   # IL
+    FALSE,  # IN
+    FALSE,  # KS
+    FALSE,  # KY
+    FALSE,  # LA
+    TRUE,   # MA
+    TRUE,   # MD
+    TRUE,   # ME
+    TRUE,   # MI
+    TRUE,   # MN
+    FALSE,  # MO
+    FALSE,  # MS
+    FALSE,  # MT
+    FALSE,  # NC
+    FALSE,  # ND
+    FALSE,  # NE
+    TRUE,   # NH
+    TRUE,   # NJ
+    TRUE,   # NM
+    TRUE,   # NV
+    TRUE,   # NY
+    FALSE,  # OH
+    FALSE,  # OK
+    TRUE,   # OR
+    FALSE,  # PA
+    TRUE,   # RI
+    FALSE,  # SC
+    FALSE,  # SD
+    FALSE,  # TN
+    FALSE,  # TX
+    FALSE,  # UT
+    TRUE,   # VA
+    TRUE,   # VT
+    TRUE,   # WA
+    TRUE,   # WI
+    FALSE,  # WV
+    FALSE   # WY
+)
+support_democratic <- c(
+  0.45,   # AK
+  0.36,   # AL
+  0.34,   # AR
+  0.49,   # AZ
+  0.63,   # CA
+  0.55,   # CO
+  0.59,   # CT
+  0.93,   # DC
+  0.59,   # DE
+  0.48,   # FL
+  0.49,   # GA
+  0.65,   # HI
+  0.45,   # IA
+  0.28,   # ID
+  0.57,   # IL
+  0.41,   # IN
+  0.43,   # KS
+  0.36,   # KY
+  0.39,   # LA
+  0.66,   # MA
+  0.64,   # MD
+  0.53,   # ME
+  0.51,   # MI
+  0.53,   # MN
+  0.42,   # MO
+  0.38,   # MS
+  0.39,   # MT
+  0.48,   # NC
+  0.28,   # ND
+  0.32,   # NE
+  0.53,   # NH
+  0.57,   # NJ
+  0.54,   # NM
+  0.50,   # NV
+  0.60,   # NY
+  0.45,   # OH
+  0.34,   # OK
+  0.58,   # OR
+  0.50,   # PA
+  0.59,   # RI
+  0.44,   # SC
+  0.34,   # SD
+  0.37,   # TN
+  0.47,   # TX
+  0.38,   # UT
+  0.54,   # VA
+  0.72,   # VT
+  0.58,   # WA
+  0.49,   # WI
+  0.23,   # WV
+  0.27    # WY
+)
+plot_data = data.frame(x = scores[, 1], y = scores[, 2], color = support_democratic, states = data[, 1])
+# ggplot(plot_data, aes(x = x, y = y, color = support_democratic, label = State)) +
+#   geom_point() +
+#   geom_text(vjust = 1.5) +
+#   scale_color_manual(values = c("red", "blue"), labels = c("Republican", "Democratic")) +
+#   labs(color = "Voting Results")
+
+ggplot(plot_data, aes(x = x, y = y, color = support_democratic, label = State)) +
+  geom_point() +
+  geom_text(vjust = 1.5) +
+  scale_color_gradient(low = "red", high = "green") +
+  labs(color = "Support Level")
+
+```
