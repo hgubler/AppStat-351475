@@ -17,13 +17,15 @@ The COVID-19 pandemic has had a huge impact on the world, included to the United
 
 In this report, we will work with daily Covid death data across all states of the United States. The data is from USAFacts and can be downloaded on their [website](https://usafacts.org/visualizations/coronavirus-covid-19-spread-map). We will analyze the data using Principal Component Analysis (PCA), which is a popular technique to analyze data with a high number of dimensions (in our case the dimension of our data is the number of days in between 22.01.2020 and 29.04.2023, hence 1194 dimensions). We will interpret the first three principal components of our data as well as the low dimensional plot, which displays the data across the first two principal components in our case.
 
-# Exploratory Data Exploration
+# Data Preparation
 
 Our data contains the cumulative number of Covid deaths for each state (observations in rows). In Figure (\@ref(fig:dailydeaths)) we see the total number of Covid deaths in the US per day, which we get from summing up all state deaths and then differencing the cumulative data.
 
 ```{r dataprep}
 library("readr")
 library("tidyverse")
+library("RColorBrewer")
+library("ggpubr")
 data = read_csv("data/covid_deaths_usafacts.csv")
 
 # remove unneeded columns
@@ -35,13 +37,14 @@ data = data %>%
   summarize_all(sum)
 ```
 
-```{r dailydeaths, fig.cap="Daily Covid deaths per capita in the US from 22.01.2020 until 29.04.2023."}
+```{r dailydeaths, fig.cap="Daily Covid deaths in the US from 22.01.2020 until 29.04.2023."}
 # nationwide data (sum up all states)
 nation_data = data %>%
   dplyr::select(-State)
 nation_data = colSums(nation_data)
 # create data such that we have deaths per day instead of cumulative deaths over time
 diff_nation_data = c(nation_data[1], diff(nation_data))
+# plot the diffed nationdata
 plot_data = as.data.frame(diff_nation_data)
 plot_data$time = 1:length(diff_nation_data)
 ggplot(data = plot_data, aes(x = time, y = diff_nation_data)) + 
@@ -55,11 +58,12 @@ ggplot(data = plot_data, aes(x = time, y = diff_nation_data)) +
 
 We observe very non-smooth data and some negative values (indicating a negative number of Covid deaths per day which is certainly not possible). This phenomenon occurs because, when counting the Covid deaths over time, certain death cases from a particular day may be subtracted due to counters believing they had overcounted on previous days.
 
-To tackle this issue we apply smoothing to our data using kernel methods with a Gaussian kernel and bandwidth 7 (where the days are numerated from one to 1194, where 1194 is the total number of days in our data). We apply smoothing to each state separately.
+To tackle this issue we apply smoothing to our data using Nadarya-Watson kernel regression with a Gaussian kernel and bandwidth 10 (where the days are numerated from one to 1194, where 1194 is the total number of days in our data). We apply smoothing to each state separately.
 
 In Figure (\@ref(fig:smoothing)), we replicate the same plot as in Figure (\@ref(fig:dailydeaths)) to review our smoothing results.
 
-```{r smoothing, fig.cap="Smoothed daily Covid deaths per capita in the US from 22.01.2020 until 29.04.2023."}
+```{r smoothing, fig.cap="Smoothed daily Covid deaths in the US from 22.01.2020 until 29.04.2023."}
+# smooth the data of every state separately using nadarya watson smoother 
 y = as.matrix(data[,-1])
 for (i in 1:nrow(y)) {
   smoothed_states = ksmooth(x = 1:ncol(y), 
@@ -68,11 +72,14 @@ for (i in 1:nrow(y)) {
         kernel = "normal")
   y[i, ] = smoothed_states$y
 }
+# create dataframe of smoothed data
 smoothed_data = as.data.frame(y)
 smoothed_data$state = data$State
+# create nationdata as before but use the smoothed state data
 nation_data = colSums(y)
 # create data such that we have deaths per day instead of cumulative deaths over time
 diff_nation_data = c(nation_data[1], diff(nation_data))
+# plotthe diffed smoothed nationdata
 plot_data = as.data.frame(diff_nation_data)
 plot_data$time = 1:length(diff_nation_data)
 ggplot(data = plot_data, aes(x = time, y = diff_nation_data)) + 
@@ -85,10 +92,9 @@ ggplot(data = plot_data, aes(x = time, y = diff_nation_data)) +
 ```
 The smoothed data already looks better and we got rid of negative values. So from now on we work with the smoothed values for the Covid death numbers. 
 
+A further preprocessing step, to have more comparable death cases between the states, is to divide all observations from a state by its population on 01.07.2022, taken from [Wikipedia](https://en.wikipedia.org/wiki/List_of_U.S._states_and_territories_by_population). Therefore our data contains now the cumulative number of Covid deaths per capita for each state from 22.01.2020 until 29.04.2023, displayed in Figure (\@ref(fig:normalize)).
 
-A further preprocessing step, to have more comparable death cases between the states, is to divide all observations from a state by its population on 01.07.2022, taken from [Wikipedia](https://en.wikipedia.org/wiki/List_of_U.S._states_and_territories_by_population). Therefore our data contains now the cumulative number of Covid deaths per capita for each state from 22.01.2020 until 29.04.2023.
-
-```{r normalize}
+```{r normalize, fig.cap="Cumulative Covid deaths per capita by states."}
 # populations by state in the same order as in our data
 populations = c(733583, 5074296, 3045637, 7359197, 39029342, 5839926, 3626205,
                 671803, 1018396, 22244823, 10912876, 1440196, 3200517, 1939033,
@@ -98,26 +104,18 @@ populations = c(733583, 5074296, 3045637, 7359197, 39029342, 5839926, 3626205,
                 11756058, 4019800, 4240137, 12972008, 1093734, 5282634, 909824, 
                 7051339, 30029572, 3380800, 8683619, 647064, 7785786, 5892539,
                 1775156, 581381)
-# divide observations from every state by its population. Last column of dataframe must be
-# excluded because its state indicator.
+# divide observations from every state by its population. Last column of dataframe 
+# must be excluded because its state indicator.
 per_capita = sweep(smoothed_data[, -ncol(smoothed_data)], 1, populations, FUN = "/")
 smoothed_data[, -ncol(smoothed_data)] = per_capita
-```
-
-As a last preprocessing step, we take the logarithm of our data WHY. Bring data in form s.t. no 0 values.
-STILL TBD BECAUSE HAVE 0 VALUES IN DATA
-
-```{r log}
-# can
-#smoothed_data[, -ncol(smoothed_data)] = log(smoothed_data[, -ncol(smoothed_data)])
-```
-
-```{r stateplots}
-library(RColorBrewer)
-data_long <- gather(smoothed_data, key = "Day", value = "Cases", -state)
-data_long$Day <- as.Date(data_long$Day)
-qual_col_pals = brewer.pal.info[brewer.pal.info$category == 'qual',]
-col_palette = unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))
+# plot cumulative deaths by state by reshaping data to long format
+data_long = gather(smoothed_data, key = "Day", value = "Cases", -state)
+data_long$Day = as.Date(data_long$Day)
+# create colour palette that contains very distinct colour for better 
+# readability of the plot
+qual_col_pals = brewer.pal.info[brewer.pal.info$category == 'qual',] 
+col_palette = unlist(mapply(brewer.pal, qual_col_pals$maxcolors, 
+                            rownames(qual_col_pals)))
 set.seed(2)
 col_palette = sample(col_palette, 51)
 ggplot(data_long, aes(x = Day, y = Cases, color = state)) +
@@ -126,33 +124,78 @@ ggplot(data_long, aes(x = Day, y = Cases, color = state)) +
   labs(y = "Cases per Capita", x = "time" )
 ```
 
+## Registration
 
+Before performing the PCA, we want to align the starting date of the first wave across state to have a more comparable first wave. As the first Covid wave did not spread out at the same time in each state, we define the individual beginning of the first wave in each state to be the point where we have 1 death per one million inhabitants in that state. Furthermore, in our analysis we only focus on the first wave and therefore stop 75 days after the beginning of the first wave in each state. In Figure (\@ref(fig:registration)) we verify that we more or less capture the first Covid wave for each state.
 
-
-# Draft
-
-```{r}
-# find last day with 0 cases for each state
-last_day = rep(0, nrow(data))
-for (i in 1:nrow(data)) {
-  # check if first day is 0 and if yes find the maximal day index which is 0
-  # note that first column is state index
-  if (data[i, 2] == 0) {
-    last_day[i] = max(which(data[i, ] == 0))
-  }
-  # if already a case on first day set to 0
-  else{
-    last_day[i] = 0
-  }
+```{r registration, fig.height=5, fig.width=10, fig.cap="Covid deaths per capita for all US states during the first 75 days after a state hits the one death per million inhavitants mark the first time. In the right plot the ten states with the highest number during the above described period where excluded to analyze the states with lower numbers."}
+# normalize original data by population and store it in data_per_capita
+# we use the original data to find the starting point of the first wave
+per_capita = sweep(data[, -1], 1, populations, FUN = "/")
+data_per_capita = data 
+data_per_capita[, -1] = per_capita
+# find the starting point for the first wave for each state and store 
+# the next 75 observations from the starting point for each state in the 
+# matrix first_wave_dat
+start_ind = rep(0, 51)
+n = 75
+first_wave_dat = matrix(ncol = n, nrow = 51)
+for (i in 1:51) {
+  start_ind = max(which(data_per_capita[i, ] <= 10^-6))
+  first_wave_dat[i, ] = as.numeric(smoothed_data[i, (start_ind + 1):(start_ind + n)])
 }
-max_last_day = max(last_day)
+# difference the first wave data again for a plot
+diff_first_wave = apply(first_wave_dat, 1, diff)
+diff_first_wave = as.data.frame(diff_first_wave)
+# Add the x values for the plot
+diff_first_wave$x = 1:(n-1)
+# add state column names
+colnames(diff_first_wave)[1:51] = data$State
+# Reshape the dataframe to long format
+long_data = gather(diff_first_wave, key = "state", value = "value", -x)
+# repeat the steps for the same plot but without states that have 
+# very high numbers, so we can analyze also the states with low numbers.
+# start from second column because first column is the x-values
+high_covid_states = names(sort(colSums(diff_first_wave), decreasing = TRUE))[2:11]
+diff_first_wave_without_big = diff_first_wave[, !(names(diff_first_wave)) %in% 
+                                                high_covid_states]
+long_data_without_big = gather(diff_first_wave_without_big, 
+                               key = "state", value = "value", -x)
+# create colur palette for dataframe without the 10 most high covid states such that 
+# the states from that plot have the same colurs as the states in the other plots
+removed_state_ind = which(data$State %in% high_covid_states)
+col_palette_removed = col_palette[-removed_state_ind]
+# create the two plots
+plot_all_states = ggplot(long_data, aes(x = x, y = value, color = state)) + 
+  geom_line() +
+  scale_color_manual(values = col_palette) + 
+  labs(x = "days", y = "cases per capita")
+plot_without_big = ggplot(long_data_without_big, 
+                          aes(x = x, y = value, color = state)) + 
+  geom_line() +
+  scale_color_manual(values = col_palette_removed) +
+  labs(x = "days", y = "cases per capita")
+# plot the two plots next to each other
+ggarrange(plot_all_states, plot_without_big, ncol = 2, nrow = 1, 
+          common.legend = TRUE, legend = "right")
 ```
 
+We observe that our time registration more or less captured the first wave for each state and therefore we proceed with this data.
 
-```{r PCA}
-second_derivative = apply(smoothed_data[, -ncol(smoothed_data)], 1, 
-                          function(row) diff(diff(row)))
-svd_mat = as.matrix(smoothed_data[, -ncol(smoothed_data)])
+In our PCA we will analyze the cumulative death numbers per capita from the data displayed in Figure (\@ref(fig:registration)) (Cumulative death numbers per capita during the first Covid wave). To have the data more spread out, we take the logarithm of the cumulative death numbers per capita as a last preprocessing step before we perform the PCA.
+
+```{r log}
+# apply log to the data
+first_wave_dat = log(first_wave_dat)
+```
+
+# PCA
+
+In this section we apply PCA to the data we prepared in the section before, that is the logarithm of the cumulative death numbers per capita during the first Covid wave for each state. In Figure (\@ref(fig:PCA)) we see the first three principal components as well the percentages of variability retained.
+
+```{r PCA, fig.width=10, fig.height=3.3, fig.cap="First three principal components of logged cumulative death numbers per capita during the first wave of Covid for each state as observations."}
+second_derivative = apply(first_wave_dat, 1, function(row) diff(diff(row)))
+svd_mat = first_wave_dat
 svd_mat_sec_der = t(second_derivative)
 # Center matrix by columns
 mu = colMeans(svd_mat)
@@ -160,15 +203,35 @@ mu_sec_der = colMeans(svd_mat_sec_der)
 svd_mat_centered = scale(svd_mat, center = TRUE, scale = FALSE)
 svd_mat_sec_der_cent = scale(svd_mat_sec_der, center = TRUE, scale = FALSE)
 svd = svd(svd_mat_centered)
+# calculate variance explained
+var_expl = svd$d^2 / (sum(svd$d^2))
 svd_sec_der = svd(svd_mat_sec_der_cent)
-eig_val = svd$v
+eig_val = as.data.frame(svd$v)
+eig_val$x = 1:nrow(eig_val)
 eig_val_sec_der = svd_sec_der$v
-par(mfrow = c(1,3), main = "original data")
 x = 1:nrow(eig_val) 
-plot(x, eig_val[, 1], type = "l")
-plot(x, eig_val[, 2], type = "l")
-plot(x, eig_val[, 3], type = "l")
+pc_1 = ggplot(data = eig_val, aes(x = x, y = V1)) + 
+  geom_line() +
+  labs(x = "days", y = "") + 
+  ggtitle("1st PC (95% of var)")
+pc_2 = ggplot(data = eig_val, aes(x = x, y = V2)) + 
+  geom_line() +
+  labs(x = "days", y = "") + 
+  ggtitle("2nd PC (4% of var)")
+pc_3 = ggplot(data = eig_val, aes(x = x, y = V3)) + 
+  geom_line() +
+  labs(x = "days", y = "") + 
+  ggtitle("3rd PC (<1% of var)")
+ggarrange(pc_1, pc_2, pc_3, nrow = 1, ncol = 3)
 ```
+
+First note that the percentages of variablity TBD.
+
+We can interpret the first three principal components as follows.
+
+* The first
+* The second
+* The third
 
 ```{r PCAsecder}
 par(mfrow = c(1,3), main = "second derivative")
@@ -178,14 +241,15 @@ plot(x, eig_val_sec_der[, 2], type = "l")
 plot(x, eig_val_sec_der[, 3], type = "l")
 ```
 
+## Low-Dimensional Plot
 
+In PCA, the low-dimensional plot is the visualization of the data in a reduced dimensional space. In our case, the representation of the data as a linear combination of the first two principal components (which capture already around 99% of the variability in the data).
 
-```{r lowdimplot}
-score = eig_val[, 1] %*% (svd_mat[1, ] - mu)
+```{r lowdimplot, fig.cap=""TBD}
 scores = matrix(nrow = 51, ncol = 2)
 for (j in 1:51) {
   for (i in 1:2) {
-    scores[j, i] = eig_val[, i] %*% (svd_mat[j, ] - mu)
+    scores[j, i] = sum(eig_val[, i] * (svd_mat[j, ] - mu))
   }
 }
 voting_results <- c(
@@ -305,6 +369,11 @@ ggplot(plot_data, aes(x = x, y = y, color = support_democratic, label = State)) 
   geom_point() +
   geom_text(vjust = 1.5) +
   scale_color_gradient(low = "red", high = "green") +
-  labs(color = "Support Level")
+  labs(color = "democratic support level", x = "1st PC", y = "2nd PC")
 
 ```
+
+
+# Conclusion
+
+TBD
