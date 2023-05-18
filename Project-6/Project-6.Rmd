@@ -19,7 +19,60 @@ In this report, we will work with daily Covid death data across all states of th
 
 # Data Preparation
 
-Our data contains the cumulative number of Covid deaths for each state (observations in rows). In Figure (\@ref(fig:dailydeaths)) we see the total number of Covid deaths in the US per day, which we get from summing up all state deaths and then differencing the cumulative data.
+Our data contains the cumulative number of Covid deaths for each state (observations in rows). In this report, we will use the following state abbreviations.
+
+* Alabama: AL
+* Alaska: AK 
+* Arizona: AZ
+* Arkansas: AR 
+* California: CA 
+* Colorado: CO 
+* Connecticut: CT 
+* Delaware: DE 
+* Florida: FL 
+* Georgia: GA 
+* Hawaii: HI
+* Idaho: ID 	
+* Illinois: IL 	
+* Indiana: IN 
+* Iowa: IA 	
+* Kansas: KS 
+* Kentucky: KY 	
+* Louisiana: LA 
+* Maine: ME 
+* Maryland: MD 
+* Massachusetts: MA 
+* Michigan: MI 
+* Minnesota: MN 	
+* Mississippi: MS 
+* Missouri: MO 	
+* Montana: MT 
+* Nebraska: NE 
+* Nevada: NV 
+* New Hampshire: NH 
+* New Jersey: NJ 
+* New Mexico: NM 
+* New York: NY 
+* North Carolina: NC 
+* North Dakota: ND 
+* Ohio: OH 
+* Oklahoma: OK 	
+* Oregon: OR 	
+* Pennsylvania: PA 
+* Rhode Island: RI 
+* South Carolina: SC 	
+* South Dakota: SD 	
+* Tennessee: TN 
+* Texas: TX 
+* Utah: UT 
+* Vermont: VT 
+* Virginia: VA 	
+* Washington: WA 
+* West Virginia: WV 
+* Wisconsin: WI 
+* Wyoming: WY 	
+
+In Figure (\@ref(fig:dailydeaths)) we see the total number of Covid deaths in the US per day, which we get from summing up all state deaths and then differencing the cumulative data.
 
 ```{r dataprep}
 library("readr")
@@ -58,7 +111,7 @@ ggplot(data = plot_data, aes(x = time, y = diff_nation_data)) +
 
 We observe very non-smooth data and some negative values (indicating a negative number of Covid deaths per day which is certainly not possible). This phenomenon occurs because, when counting the Covid deaths over time, certain death cases from a particular day may be subtracted due to counters believing they had overcounted on previous days.
 
-To tackle this issue we apply smoothing to our data using Nadarya-Watson kernel regression with a Gaussian kernel and bandwidth 10 (where the days are numerated from one to 1194, where 1194 is the total number of days in our data). We apply smoothing to each state separately.
+To tackle this issue we apply smoothing to our data using Nadarya-Watson kernel regression with a Gaussian kernel and bandwidth 15 (where the days are numerated from one to 1194, where 1194 is the total number of days in our data). We apply smoothing to each state separately.
 
 In Figure (\@ref(fig:smoothing)), we replicate the same plot as in Figure (\@ref(fig:dailydeaths)) to review our smoothing results.
 
@@ -68,7 +121,7 @@ y = as.matrix(data[,-1])
 for (i in 1:nrow(y)) {
   smoothed_states = ksmooth(x = 1:ncol(y), 
         y = y[i, ],
-        bandwidth = 10,
+        bandwidth = 15,
         kernel = "normal")
   y[i, ] = smoothed_states$y
 }
@@ -128,7 +181,7 @@ ggplot(data_long, aes(x = Day, y = Cases, color = state)) +
 
 Before performing the PCA, we want to align the starting date of the first wave across state to have a more comparable first wave. As the first Covid wave did not spread out at the same time in each state, we define the individual beginning of the first wave in each state to be the point where we have 1 death per one million inhabitants in that state. Furthermore, in our analysis we only focus on the first wave and therefore stop 75 days after the beginning of the first wave in each state. In Figure (\@ref(fig:registration)) we verify that we more or less capture the first Covid wave for each state.
 
-```{r registration, fig.height=5, fig.width=10, fig.cap="Covid deaths per capita for all US states during the first 75 days after a state hits the one death per million inhavitants mark the first time. In the right plot the ten states with the highest number during the above described period where excluded to analyze the states with lower numbers."}
+```{r registration, fig.height=5, fig.width=10, fig.cap="Covid deaths per capita for all US states during the first 75 days after a state hits the one death per million inhavitants mark the first time. In the right plot the ten states with the highest number during the above described period where excluded to better analyze the states with lower numbers."}
 # normalize original data by population and store it in data_per_capita
 # we use the original data to find the starting point of the first wave
 per_capita = sweep(data[, -1], 1, populations, FUN = "/")
@@ -194,30 +247,33 @@ first_wave_dat = log(first_wave_dat)
 In this section we apply PCA to the data we prepared in the section before, that is the logarithm of the cumulative death numbers per capita during the first Covid wave for each state. In Figure (\@ref(fig:PCA)) we see the first three principal components as well the percentages of variability retained.
 
 ```{r PCA, fig.width=10, fig.height=3.3, fig.cap="First three principal components of logged cumulative death numbers per capita during the first wave of Covid for each state as observations."}
-second_derivative = apply(first_wave_dat, 1, function(row) diff(diff(row)))
+derivative = apply(first_wave_dat, 1, function(row) diff(row))
+derivative = t(as.matrix(diff_first_wave[, -ncol(diff_first_wave)]))
 svd_mat = first_wave_dat
-svd_mat_sec_der = t(second_derivative)
+svd_mat_der = t(derivative)
 # Center matrix by columns
 mu = colMeans(svd_mat)
-mu_sec_der = colMeans(svd_mat_sec_der)
+mu_sec_der = colMeans(svd_mat_der)
 svd_mat_centered = scale(svd_mat, center = TRUE, scale = FALSE)
-svd_mat_sec_der_cent = scale(svd_mat_sec_der, center = TRUE, scale = FALSE)
+svd_mat_der_cent = scale(svd_mat_der, center = TRUE, scale = FALSE)
+# calculate svd
 svd = svd(svd_mat_centered)
+svd_der = svd(svd_mat_der_cent)
 # calculate variance explained
 var_expl = svd$d^2 / (sum(svd$d^2))
-svd_sec_der = svd(svd_mat_sec_der_cent)
+var_expl_der = svd_der$d^2 / (sum(svd_der$d^2))
 eig_val = as.data.frame(svd$v)
+eig_val_der = as.data.frame(svd_der$v)
 eig_val$x = 1:nrow(eig_val)
-eig_val_sec_der = svd_sec_der$v
-x = 1:nrow(eig_val) 
+eig_val_der$x = 1:nrow(eig_val_der)
 pc_1 = ggplot(data = eig_val, aes(x = x, y = V1)) + 
   geom_line() +
   labs(x = "days", y = "") + 
-  ggtitle("1st PC (95% of var)")
+  ggtitle("1st PC (95.5% of var)")
 pc_2 = ggplot(data = eig_val, aes(x = x, y = V2)) + 
   geom_line() +
   labs(x = "days", y = "") + 
-  ggtitle("2nd PC (4% of var)")
+  ggtitle("2nd PC (4.0% of var)")
 pc_3 = ggplot(data = eig_val, aes(x = x, y = V3)) + 
   geom_line() +
   labs(x = "days", y = "") + 
@@ -225,155 +281,105 @@ pc_3 = ggplot(data = eig_val, aes(x = x, y = V3)) +
 ggarrange(pc_1, pc_2, pc_3, nrow = 1, ncol = 3)
 ```
 
-First note that the percentages of variablity TBD.
+First note that the percentages of variability retained for the first component is very high (95%), so the first principal component can already explain a big part of the variability in the data. Such a high number is possible since we only looked at a rather short time frame (75 days) instead of at the full data.
 
 We can interpret the first three principal components as follows.
 
-* The first
-* The second
-* The third
+* The first principal component is all positive and can therefore be seen as the variability in overall cumulative Covid deaths in the first wave.
+* The second principal component contrasts the beginning against the end of the first Covid wave.
+* The third principal component contrasts the beginning and the end of the first wave with the middle (around the peak) of the first wave.
 
-```{r PCAsecder}
-par(mfrow = c(1,3), main = "second derivative")
-x = 1:nrow(eig_val_sec_der) 
-plot(x, eig_val_sec_der[, 1], type = "l")
-plot(x, eig_val_sec_der[, 2], type = "l")
-plot(x, eig_val_sec_der[, 3], type = "l")
+In Figure (\@ref(fig:PCAfirstder)) we look at the principal components of the first derivative (applied state-wise to the data analyzed in Figure (\@ref(fig:PCA))), which describes the speed 
+
+```{r PCAfirstder}
+pc_1_der = ggplot(data = eig_val_der, aes(x = x, y = V1)) + 
+  geom_line() +
+  labs(x = "days", y = "") + 
+  ggtitle("1st PC (62% of var)")
+pc_2_der = ggplot(data = eig_val_der, aes(x = x, y = V2)) + 
+  geom_line() +
+  labs(x = "days", y = "") + 
+  ggtitle("2nd PC (17% of var)")
+pc_3_der = ggplot(data = eig_val_der, aes(x = x, y = V3)) + 
+  geom_line() +
+  labs(x = "days", y = "") + 
+  ggtitle("3rd PC (9% of var)")
+ggarrange(pc_1_der, pc_2_der, pc_3_der, nrow = 1, ncol = 3)
 ```
 
 ## Low-Dimensional Plot
 
-In PCA, the low-dimensional plot is the visualization of the data in a reduced dimensional space. In our case, the representation of the data as a linear combination of the first two principal components (which capture already around 99% of the variability in the data).
+In PCA, the low-dimensional plot is the visualization of the data in a reduced dimensional space. In our case, the representation of the data as a linear combination of the first two principal components (which capture already more than 99% of the variability in the data). Furthermore we colorize the observations of our data (states) by the state's democratic support in the US presidential election in 2020 (the data can be found on [Wikipedia](https://en.wikipedia.org/wiki/2020_United_States_presidential_election)). In Figure (\@ref(fig:lowdimplot)) we plot the low dimensional plot for our data colorized by democratic support.
 
-```{r lowdimplot, fig.cap=""TBD}
-scores = matrix(nrow = 51, ncol = 2)
-for (j in 1:51) {
-  for (i in 1:2) {
-    scores[j, i] = sum(eig_val[, i] * (svd_mat[j, ] - mu))
-  }
-}
-voting_results <- c(
-    FALSE,  # AK
-    FALSE,  # AL
-    FALSE,  # AR
-    TRUE,   # AZ
-    TRUE,   # CA
-    TRUE,   # CO
-    TRUE,   # CT
-    TRUE,   # DC
-    TRUE,   # DE
-    FALSE,  # FL
-    FALSE,  # GA
-    TRUE,   # HI
-    FALSE,  # IA
-    FALSE,  # ID
-    TRUE,   # IL
-    FALSE,  # IN
-    FALSE,  # KS
-    FALSE,  # KY
-    FALSE,  # LA
-    TRUE,   # MA
-    TRUE,   # MD
-    TRUE,   # ME
-    TRUE,   # MI
-    TRUE,   # MN
-    FALSE,  # MO
-    FALSE,  # MS
-    FALSE,  # MT
-    FALSE,  # NC
-    FALSE,  # ND
-    FALSE,  # NE
-    TRUE,   # NH
-    TRUE,   # NJ
-    TRUE,   # NM
-    TRUE,   # NV
-    TRUE,   # NY
-    FALSE,  # OH
-    FALSE,  # OK
-    TRUE,   # OR
-    FALSE,  # PA
-    TRUE,   # RI
-    FALSE,  # SC
-    FALSE,  # SD
-    FALSE,  # TN
-    FALSE,  # TX
-    FALSE,  # UT
-    TRUE,   # VA
-    TRUE,   # VT
-    TRUE,   # WA
-    TRUE,   # WI
-    FALSE,  # WV
-    FALSE   # WY
-)
+```{r lowdimplot, fig.cap="Low-dimensional plot of the first two principal components of the data containing the first Covid wave in the US, colorized by democratic support in the 2020's US presidential eleciction."}
+# calculate scores
+scores = svd$u %*% diag(svd$d)
+# store (rounded) voting results to colour them on plot
 support_democratic <- c(
-  0.45,   # AK
-  0.36,   # AL
-  0.34,   # AR
+  0.43,   # AK
+  0.37,   # AL
+  0.35,   # AR
   0.49,   # AZ
   0.63,   # CA
   0.55,   # CO
   0.59,   # CT
-  0.93,   # DC
+  0.92,   # DC
   0.59,   # DE
   0.48,   # FL
   0.49,   # GA
-  0.65,   # HI
+  0.64,   # HI
   0.45,   # IA
-  0.28,   # ID
-  0.57,   # IL
+  0.33,   # ID
+  0.58,   # IL
   0.41,   # IN
-  0.43,   # KS
+  0.42,   # KS
   0.36,   # KY
-  0.39,   # LA
+  0.40,   # LA
   0.66,   # MA
-  0.64,   # MD
+  0.65,   # MD
   0.53,   # ME
   0.51,   # MI
-  0.53,   # MN
-  0.42,   # MO
-  0.38,   # MS
-  0.39,   # MT
-  0.48,   # NC
-  0.28,   # ND
-  0.32,   # NE
+  0.52,   # MN
+  0.41,   # MO
+  0.41,   # MS
+  0.41,   # MT
+  0.49,   # NC
+  0.32,   # ND
+  0.39,   # NE
   0.53,   # NH
   0.57,   # NJ
   0.54,   # NM
   0.50,   # NV
-  0.60,   # NY
+  0.61,   # NY
   0.45,   # OH
-  0.34,   # OK
-  0.58,   # OR
+  0.32,   # OK
+  0.56,   # OR
   0.50,   # PA
   0.59,   # RI
-  0.44,   # SC
-  0.34,   # SD
+  0.43,   # SC
+  0.36,   # SD
   0.37,   # TN
-  0.47,   # TX
+  0.46,   # TX
   0.38,   # UT
   0.54,   # VA
-  0.72,   # VT
+  0.66,   # VT
   0.58,   # WA
   0.49,   # WI
-  0.23,   # WV
+  0.30,   # WV
   0.27    # WY
 )
-plot_data = data.frame(x = scores[, 1], y = scores[, 2], color = support_democratic, states = data[, 1])
-# ggplot(plot_data, aes(x = x, y = y, color = support_democratic, label = State)) +
-#   geom_point() +
-#   geom_text(vjust = 1.5) +
-#   scale_color_manual(values = c("red", "blue"), labels = c("Republican", "Democratic")) +
-#   labs(color = "Voting Results")
 
+# plot the results coloured by democratic support in 2020
+plot_data = data.frame(x = scores[, 1], y = scores[, 2], color = support_democratic, states = data[, 1])
 ggplot(plot_data, aes(x = x, y = y, color = support_democratic, label = State)) +
   geom_point() +
   geom_text(vjust = 1.5) +
-  scale_color_gradient(low = "red", high = "green") +
-  labs(color = "democratic support level", x = "1st PC", y = "2nd PC")
+  scale_color_gradient(low = "yellow", high = "darkblue") +
+  labs(color = "democratic support level", x = "1st PC (95.5% of var)", y = "2nd PC (4.0% of var)")
 
 ```
-
+By colorizing the low-dimensional plot of our PCA we detect some grouping in the states that voted more republic and states that voted more democratic in the 2020 US presidential election. This suggests that there could be some connection between the development of the first Covid wave in a given state and its political ideology (republic/democratic). Especially in the first principal component, which captures 95.5% of variability in the data, shows a clear pattern of more democratic states being more on the left side and more republic states more on the right side.
 
 # Conclusion
 
-TBD
+In this report we analyzed data containing the cumulative number of deaths during Covid in the United States, and applied PCA to the first wave of the pandemic. To bring the first Covid wave, that behaved differently in each state, on the same scale we used registration by defining an individual starting point of the first wave in each state. After that, we kept the data containing the next 75 days after the registered starting point in each state to capture the first wave. After performing PCA, we found that our first two principal components captured almost all variability of the data, which makes it very interesting to look at the low-dimensional plot, which represents the data in the first two principal components. In this plot, by colorizing the states with the democratic support in the 2020 US presidential election, we found a connection between the first Covid wave in the US and the political state ideology. This is an interesting result, but as PCA is just an exploratory tool, a more in depth statistical analysis would be needed to draw definite conclusions.
