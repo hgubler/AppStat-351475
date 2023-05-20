@@ -15,11 +15,12 @@ knitr::opts_chunk$set(echo = FALSE)
 
 In this report, we work with binned data where each bin refers to a diameter range of snowflakes. More precisely, it contains the total number of snowflakes measured and the percentage of snowflakes belonging to each diameter bin. The data comes from the Laboratory of Cryospheric sciences at EPFL.
 Expert knowledge suggests that a mixture of two log-normal distributions (bi-log-normal distribution) is a good model for the data.
-The outline of the remainder of this report is as follows: In Section (\@ref(expl)), we visually verify if the expert knowledge of a bi-log-normal distribution is a valid assumption. After that, in Section (\@ref(estim)), we will use the EM algorithm and an optimization algorithm to estimate the five parameters that describe the bi-log-normal distribution. Finally, in Section (\@ref(boot)), we will use parametric bootstrap to test whether the snowflake diameters come from a bi-log-normal distribution.
+
+The outline of the remainder of this report is as follows: In Section (\@ref(expl)), we visually verify whether the expert knowledge of a bi-log-normal distribution is a valid assumption. After that, in Section (\@ref(estim)), we will use the EM algorithm and an optimization algorithm to estimate the five parameters that describe the bi-log-normal distribution. Finally, in Section (\@ref(boot)), we will use parametric bootstrap to test whether the snowflake diameters come from a bi-log-normal distribution.
 
 # Descriptive Data Exploration {#expl}
 
-Since we already have access to the expert knowledge telling us that the bi-log-normal distribution is a good model for the data, our main goal in this section is to check whether this is a viable assumption. It would be easy to just plot a histogram of the data, but since we only have the data in bins of different sizes, it will be slightly more difficult. So before plotting the histogram in Figure (\@ref(fig:histogram)), we will jitter the data using a uniform distribution inside each bin. Also, we will set the endpoint of the last bin to 3.25 to make the size of the last bin more comparable to the rest (the last bin doesn't contain any datapoint so this won't affect our future calculations).
+Since we already have access to the expert knowledge telling us that the bi-log-normal distribution is a good model for the data, our main goal in this section is to check whether this is a viable assumption. It would be easy to just plot a histogram of the data, but since we only have the data in bins of different sizes, it will be slightly more difficult. So before plotting the histogram in Figure (\@ref(fig:histogram)), we jitter the data using a uniform distribution inside each bin. Also, we set the endpoint of the last bin to 3.25 to make the size of the last bin more comparable to the other bins (the last bin doesn't contain any datapoint so this will not affect our future calculations).
 
 ```{r histogram, echo=FALSE, fig.align="center", fig.cap="Histogram of the snowflake diameters after jittering the data using a uniform distribution in each bin."}
 library("ggplot2")
@@ -54,7 +55,7 @@ We can see that the assumption of a bi-log-normal distribution seems valid as we
 
 # Parameter estimation {#estim}
 
-In this section, we estimate the parameters for the jittered data assuming it follows a bi-log-normal distribution. We will proceed as follows: First, using the EM algorithm, we estimate the parameters $\mu_1, \mu_2, \sigma_1, \sigma_2$ and $\tau$ for the jittered data. After that, we optimize the log likelihood of the binned data (not the jittered data we use for the EM algorithm) starting with the values given by the EM algorithm. 
+In this section, we estimate the parameters for the jittered data assuming it follows a bi-log-normal distribution. We proceed as follows: First, using the EM algorithm, we estimate the parameters $\mu_1, \mu_2, \sigma_1, \sigma_2$ and $\tau$ for the jittered data. After that, we optimize the log likelihood of the binned data (not the jittered data we use for the EM algorithm) starting with the values given by the EM algorithm. 
 
 ## EM algorithm {#EM}
 
@@ -188,14 +189,14 @@ To perform this test, we proceed as follows: We create 100 bootstrap datasets co
 
 1. Bin the data using the bins of the original dataset.
 2. Jitter the data in the same way as we did with the original dataset.
-3. Estimate the parameters of the bi-log-normal model using the EM algorithm.
-4. Optimize the log likelihood of the binned, bootstrapped data.
+3. Estimate the parameters of the bi-log-normal model using the EM algorithm on the jittered data.
+4. Optimize the log likelihood of the binned data.
 
 After that we can estimate the p-value for testing $H_0$ vs $H_1$. This is done by comparing on each bootstrapped dataset the empirical CDF with the parametrized CDF using the parameters obtained by EM and Optimization. More precisely we calculate the Kolmogorov-Smirnov statistic
 $$
 T_b^\star = \sup_x \Big| \widehat{F}_{N,b}^\star(x) - F_{\widehat{\lambda}_b^\star}(x) \Big|,
 $$
-where $\widehat{F}_{N,b}^\star$ is the empirical CDF of the binned $b$-th bootstrapped dataset and $F_{\widehat{\lambda}_b^\star}$ is the CDF parametrized by the estimated parameters $\lambda_b^\star$, obtained by optimizing the log likelihood of the binned $b$-th bootstrapped dataset. Furthermore we calculate the Kolmogorov-Smirnov statistic of the empirical CDF of our original binned data and the CDF parametrized by the optimized parameters $\widehat{\lambda}$ of the original data, that is 
+where $\widehat{F}_{N,b}^\star$ is the empirical CDF of the binned $b$-th bootstrapped dataset and $F_{\widehat{\lambda}_b^\star}$ is the CDF parametrized by the estimated parameters $\lambda_b^\star$, obtained by optimizing the binned log likelihood of the binned $b$-th bootstrapped dataset. Furthermore we calculate the Kolmogorov-Smirnov statistic of the empirical CDF of our original binned data and the CDF parametrized by the optimized parameters $\widehat{\lambda}$ of the original data, that is 
 $$
 T = \sup_x \Big| \widehat{F}_N(x) - F_\widehat{\lambda}(x) \Big|.
 $$
@@ -207,7 +208,7 @@ $$
 where $B =$ 100 is the number of bootstrapped datasets. 
 ```{r parametric bootstrap, echo=FALSE}
 n_bootstrap = 100 # number of bootstrap samples
-ndata_boot = 705044 # number of data in bootstrap sample
+ndata_boot = 500 # number of data in bootstrap sample
 bootstrap_data = matrix(nrow = ndata_boot, ncol = n_bootstrap) 
 for (i in 1:n_bootstrap) {
   bootstrap_data[, i] = rbilnorm(ndata_boot, mu1_opt, mu2_opt, sigma1_opt, sigma2_opt, tau_opt)
@@ -333,6 +334,6 @@ We see that a bi-log-normal distribution parametrized by our optimized parameter
 
 # Conclusion
 
-In this report, we were able to find statistical arguments to show that the snowflake diameters follow a bi-log-normal distribution. In addition to that, using the EM algorithm and optimization of the binned log likelihood, we were able to find a set of parameter estimates such that our parametrized bi-log-normal model describes the data very well. These estimates can be found in Table (\@ref(tab:paramtable)) and below an instruction on how to simulate new snowflake parameters using these estimates.
+In this report, we were able to find statistical arguments to show that the snowflake diameters follow a bi-log-normal distribution. In addition to that, using the EM algorithm and optimization of the binned log likelihood, we were able to find a set of parameter estimates such that our parametrized bi-log-normal model describes the data very well. These estimates can be found in Table (\@ref(tab:paramtable)), and below an instruction on how to simulate new snowflake diameters using these estimates.
 
-The steps in this report also show that even if we only have access to binned data there are possibilities to find an appropriate statistical model for the data. However this requires some extra steps and we would always prefer non-binned data as it provides more information.
+The steps in this report show that even if we only have access to binned data there are possibilities to find an appropriate statistical model for the data. However, this requires some extra steps and we would always prefer non-binned data as it provides more information.
