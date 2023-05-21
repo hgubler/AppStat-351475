@@ -1,6 +1,6 @@
 ---
 title: "Project-6"
-author: "Hannes"
+author: "Hannes Gubler"
 date: "2023-05-10"
 output: 
   bookdown::html_document2:

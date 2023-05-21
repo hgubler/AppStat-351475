@@ -1,7 +1,7 @@
 ---
-title: "Project-4: U.S Presidential Elections"
-author: "Hannes"
-date: "2023-04-05"
+title: "Project-4"
+author: "Hannes Gubler"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: 
   bookdown::html_document2:
     toc: true
@@ -15,11 +15,11 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 
 The U.S. Presidential elections are one of the most significant political events in the world and draw attention from all across the globe. The elections, which take place every four years, determine the president of the United States for the next four years. In contrary to most other countries, there is not a single nationwide election. Instead, it is a series of separate state-level elections, which then are combined to determine the winner. Each state has a certain number of "electoral votes" that are (more or less) based on its population and the candidate with the most votes in a given state wins all of that state's electoral votes.
 
-In this report, we explore the data on U.S. Presidential elections between 1948 and 1992, focusing on the two-party vote for the Democratic and Republican candidates in each state and year. We try to model the share of democratic votes in a given state and year first with a linear model and later with a linear mixed model. By analyzing the data, we aim to identify crucial factors that lead to electoral success in the United States. Furthermore we investigate how we can apply the linear mixed model to the data to overcome the independence assumption of the linear model.
+In this report, we explore the data on U.S. Presidential elections between 1948 and 1992, focusing on the two-party vote for the Democratic and Republican candidates in each state and year. We try to model the share of Democratic votes in a given state and year first with a linear model and later with a linear mixed model. By analyzing the data, we aim to identify crucial factors that lead to electoral success in the United States. Furthermore we investigate how we can apply the linear mixed model to the data to overcome the independence assumption of the linear model.
 
 # Data Explanation
 
-To model the share of democratic votes in a given state and year, we have the following variables available.
+To model the share of Democratic votes in a given state and year, we have the following variables available.
 
 * `dvote` - the outcome variable, the Democratic party candidate's share of the vote in the given state and year
 * `year` - specifies the year of the election
@@ -38,7 +38,7 @@ Furthermore we have the state wide variables
 * `dvote_last2` - the Democratic party candidate's share two elections ago given state and year (as a deviation from corresponding national vote)
 * `home_state` - the home state of the presidential candidate (+1 if the corresponding state is the home state of the Democratic candidate and -1 if the corresponding state is the home state of the Republican candidate)
 * `home_state_vice` - the home state of the vice-presidential candidate (+1 if the corresponding state is the home state of the Democratic vice candidate and -1 if the corresponding state is the home state of the Republican vice candidate)
-* `dmajor_leg` - the democratic majority in the state legislature (positive values if the Democrats had a majority compared to the Republicans and negative values if the Republicans had a majority compared to the Democrats)
+* `dmajor_leg` - the Democratic majority in the state legislature (positive values if the Democrats had a majority compared to the Republicans and negative values if the Republicans had a majority compared to the Democrats)
 * `econ_growth_inc` - the state economic growth in the past year (positive values if the incumbent president is a Democrat and negative if the incumbent president is a Republican)
 * `state_ideology` - a measure for the state ideology (same value in every year) (positive values if ideology is more Democratic and negative values if ideology is more Republic)
 * `ideology_comp` - ideological compatibility of a given state with the candidates 
@@ -56,7 +56,7 @@ Lastly we have the regional variables
 
 The year 1964 was special because the Democratic candidate was able to completely dominate the elections, also in the south but with an exception of the deep south states. The other regional variables (`south`, `new_england_1972`, `west_1976`) are there to adjust for known and expected outliers (very unusual results in certain states and years) instead of removing them from the data.
 
-In our analysis we will treat year, state as well as all the regional variables as factors, while the remaining variables will be treated as numerical. Furthermore we add an additional factor `region` to the dataset dividing the states in the regions "Northeast", "South", "Midwest" and "West. Lastly we remove all the observation with missing values from our data.
+In our analysis we will treat `year`, `state` as well as all the regional variables as factors, while the remaining variables will be treated as numerical. Furthermore we add an additional factor `region` to the dataset dividing the states in the regions "Northeast", "South", "Midwest" and "West. Lastly we remove all the observation with missing values from our data.
 
 ```{r preprocessing}
 library("readr") # to load data
@@ -115,10 +115,10 @@ data = data %>% mutate(region = as.factor(region))
 data = na.omit(data)
 ```
 
-# Linear Model
+# Linear Model {#linmod}
 
-For our first linear model, we certainly want to include `state` to predict `dvote`. Since `state` is a factor variable, we can't include the factor `region` to the same model since it would make the design matrix singular. The same goes for `state_ideology`, which does not change over the years and hence is the same number in each for two observations from the same state. Similarly, we want to include the factor `year` in our first model, which will not allow us to use any of the nationwide variables, since a nationwide variable takes the same value for all observations of one year.
-So our linear model uses the predictors `dvote_last`, `dvote_last2`, `home_state`, `home_state_vice`, `dmajor_leg`, `econ_growth_inc`, `ideology_comp`, `cath_1960`, `south`, `south_1964`, `deep_south_1964`, `new_england_1964`, `new_england_1972` and `west_1976` to model the response `dvote`. First we look at the type 2 anova test for our linear model, which compares for each coefficient the full model vs the model with all predictors but not the one corresponding to the specific coefficient.
+For our first linear model, we certainly want to include `state` to predict `dvote`. Since `state` is a factor variable, we can not include the factor `region` to the same model since it would make the design matrix singular. The same goes for `state_ideology`, which does not change over the years and hence is the same number for two observations from the same state (and thus makes the design matrix singular since we already include `state`). Similarly, we want to include the factor `year` in our first model, which will not allow us to use any of the nationwide variables, since a nationwide variable takes the same value for all observations from one year.
+So our linear model uses the predictors `dvote_last`, `dvote_last2`, `home_state`, `home_state_vice`, `dmajor_leg`, `econ_growth_inc`, `ideology_comp`, `cath_1960`, `south`, `south_1964`, `deep_south_1964`, `new_england_1964`, `new_england_1972` and `west_1976` to model the response `dvote`. First we look at the type two anova test for our linear model, which compares for each coefficient the full model vs the model with all predictors but not the one corresponding to the specific coefficient.
 
 ```{r anova}
 # create model described as above
@@ -219,7 +219,7 @@ The linear mixed model is an extension of the linear model. We define it as
 $$
 Y = X\beta + Z b + \epsilon, \quad b \sim N_q(0,C), \quad \epsilon \sim N_n(0, \sigma^2I_n)
 $$
-where $X \in \mathbb{R}^{n\times p}$ and $Z \in \mathbb{R}^{n\times q}$ are known design matrices, $\beta \in \mathbb{R}^p$ are fixed parameters (effects), $b \in \mathbb{R}^q$ are random effects (independent of $\epsilon$) and $Y \in \mathbb{R}^n$ is the response. So the parameters in a linear mixed model are $\beta, C$ and $\sigma^2$. They are estimated either by using maximum likelihood (ML) or restricted maximum likelihood (REML). In our analysis we use the ML method. The inclusion of the random effect $b$ in the model allows for the modeling of the correlation structure among the observations. Specifically, the random effect $b$ captures the deviation of the observations within a group from the overall population mean (fixed effect). Moreover the covariance matrix $C$ of $b$ can allow for correlation between different random effects
+where $X \in \mathbb{R}^{n\times p}$ and $Z \in \mathbb{R}^{n\times q}$ are known design matrices, $\beta \in \mathbb{R}^p$ are fixed parameters (effects), $b \in \mathbb{R}^q$ are random effects (independent of $\epsilon$) and $Y \in \mathbb{R}^n$ is the response. So the parameters in a linear mixed model are $\beta, C$ and $\sigma^2$. They are estimated either by using maximum likelihood (ML) or restricted maximum likelihood (REML). In our analysis we use the ML method, so we will be able to use the likelihood ratio test for fixed effects. The inclusion of the random effect $b$ in the model allows for the modeling of the correlation structure among the observations. In the case of factor variables, the random effect $b$ captures the deviation of the observations within a group from the overall population mean (fixed effect). Moreover the covariance matrix $C$ of $b$ can allow for correlation between different random effects
 
 As observed in Figure (\@ref(fig:twolvlgroup)) we would like to allow for dependency between observations from the same year and region. So we add a random effect for the interaction between `year` and `region` to our linear model from the section before. Furthermore we also add a random effect for `year` itself as it intuitively makes sense to allow for correlation between observations from the same year. In the R syntax, we add the term `(1|year/region)` to our linear model and fit it with the `lmer` function from the `lme4` library. We have the relationship `(1|year/region) = (1|year) + (1|year:region)`, which adds a random intercept for `year` and regions within years `region:year` to our model. Note that since we add a random effect for `year` to our model we remove the fixed effect of `year` because we do not want to have both a fixed and random effect for `year` at the same time. But then, not having a fixed effect for `year` in the model allows us to use the nationwide variables that we excluded before, as we do not have singularity problems anymore. Figure (\@ref(fig:mixedm0)) now shows the same plot as in Figure (\@ref(fig:twolvlgroup)) but with the residuals from the mixed model to see if we solved the issue.
 
@@ -280,9 +280,9 @@ $$
 # called bootstrap_script.R
 ```
 
-When we perform these calculations with $n = 1000$ we get a p-value of $0.598$, suggesting that it is not necessary to include `year` as a random effect in our model and hence we can discard part of the random effect structure. So we proceed with the model with a random effect only for the interaction between `year` and `region`. 
+Once we perform these calculations with $n = 1000$ we get a p-value of $0.598$, suggesting that it is not necessary to include `year` as a random effect in our model and hence we can discard part of the random effect structure. So we proceed with the model with a random effect only for the interaction between `year` and `region`. 
 
-For the fixed effects, we look at the type 2 anova test. Since we only test for fixed effects, the likelihood ratio test follows chi square distribution asymptotically where we can determine the degrees of freedom as usual. Note that we fit our linear mixed model using ML such that we can make use of the likelihood ratio test (which bases on the fact that parameters have been estimated using maximum likelihood).
+For the fixed effects, we look at the type two anova test. Since we only test for fixed effects, the likelihood ratio test follows chi square distribution asymptotically where we can determine the degrees of freedom as usual. Note that we fit our linear mixed model using ML such that we can make use of the likelihood ratio test (which bases on the fact that parameters have been estimated using maximum likelihood).
 
 ```{r anova2}
 # create model without random intercept for year according to the results of 
@@ -311,9 +311,9 @@ mixed_m0 = lmer(dvote ~
                 REML = FALSE)
 # create anova type 2 table for the model above
 anova2 = Anova(mixed_m0, type = 2, data = data)
-kable(anova2, digits = 3, caption = "Type 2 anova for the fixed effects in our linear mixed model, comparing for each coefficient the full model with the full model excluding the predictor from that coefficient.")
+kable(anova2, digits = 3, caption = "Type two anova for the fixed effects in our linear mixed model, comparing for each coefficient the full model with the full model excluding the predictor from that coefficient.")
 ```
-According to the type 2 anova test, only `dapprove_inc` seems to be not statistically significant. `dapprove_presinc` is exactly the same as `dapprove_inc` if the incumbent president is running for a re-election and zero else, so this result suggests that the support for the incumbent president does not matter to predict `dvote` if he is not running for a re-election. Thus, as a last step, we remove `dapprove_inc` from our linear mixed model.
+According to the type 2 anova test, only `dapprove_inc` seems to be not statistically significant at a level 0.05. `dapprove_presinc` is exactly the same as `dapprove_inc` if the incumbent president is running for a re-election and zero else, so this result suggests that the support for the incumbent president does not matter to predict `dvote` if he is not running for a re-election. Thus, as a last step, we remove `dapprove_inc` from our linear mixed model.
 
 To conclude, our last model now consists of the fixed effects present in Table (\@ref(tab:anova2)), except `dapprove_inc`, and a random effect for the interaction between `year` and `region`. In the next section, we look at some of the most important diagnostic tools for our linear mixed model. 
 
@@ -371,7 +371,7 @@ qq_ran_eff = ggplot(data = random_effects, aes(sample = random_effects)) +
 ggarrange(res_vs_fit, qq_plot, qq_ran_eff, ncol = 3, nrow = 1)
 ```
 
-The normal Q-Q plot for the residuals and the residuals vs fitted values plot look almost identical to those in Figure (\@ref(fig:diagnostics)) and hence as in the case for the linear model they do not look like a model assumption is clearly violated. Furthermore the normal Q-Q plot for the random effect in our model looks acceptable and, based on the small number of observations, we may assume that the normality assumption of our random intercepts holds.
+The normal Q-Q plot for the residuals and the residuals vs fitted values plot look almost identical to those in Figure (\@ref(fig:diagnostics)) and hence, as in the case for the linear model from Section (\@ref(linmod)), do not suggest that a model assumption is clearly violated. Furthermore the normal Q-Q plot for the random effect in our model looks acceptable and, based on the small number of observations, we may assume that the normality assumption of our random intercepts holds.
 
 
 # Parameter interpretation
@@ -387,13 +387,13 @@ coef_table = coef_table[c(5, 51:66), ]
 coef_table = coef_table %>%
   select(-"Std. Error", -"t value")
 rownames(coef_table)[c(12:17)] = c("south", "south_1964", "deep_south_1964", "new_england_1964", "new_england_1972", "west_1976")
-kable(coef_table, digits = 3, caption = "Estimated coefficients (fixed effects) of the final linear mixed model.")
+kable(coef_table, digits = 3, caption = "Some selected estimated coefficients (fixed effects) of the final linear mixed model.")
 ```
 
-The interpretation for these coefficients is not always straightforward. Therefore we look at some examples for some interesting coefficients.
+The interpretation for these coefficients is not always straightforward. Therefore we look at some examples of some interesting coefficients.
 
 * The Democratic party candidate's share increases by 3.4 % if we look at the state California (state 5) instead of Alabama (state 0, base level of `state`).
-* The Democratic party candidate's share increases by 4.33 % (0.1 * 43,3 %) if the support for the democratic candidate in the September poll `d_vote_poll` increases by 10 %.
+* The Democratic party candidate's share increases by 4.33 % (0.1 * 43,3 %) if the support for the Democratic candidate in the September poll `d_vote_poll` increases by 10 %.
 * The interpretation of the coefficient `dapprove_presinc` is a bit tricky. We divide it in two cases.
   - If the incumbent president is a Democrat and running for a re-election, his share increases 
   by 0.3 % (0.1 * 3 %) if the support in the July poll for the incumbent 
@@ -404,11 +404,11 @@ The interpretation for these coefficients is not always straightforward. Therefo
   - The Democratic party candidate's share decreases by 3.8 % in the home state of the Republican candidate.
 * The Democratic party candidate's share increases by 18.5 % in the deep south states if we look at the year 1964.
 
-According to our model, `dvote_poll` (the support for the democratic candidate in the September poll) is definitely one of the most important factors to predict the Democratic candidate's share in the election.
+According to our model, `dvote_poll` (the support for the Democratic candidate in the September poll) is definitely one of the most important factors to predict the Democratic candidate's share in the election.
 
 
 # Conclusion
 
-In this report we built a statistical model for the US presidential elections between 1948 and 1992. We found that especially the September poll is a strong predictor for the later elections. For our final estimates, we started by using a linear model and then moved to a linear mixed model, with a random effect for the interaction between `year` and `region`. The reason why a linear mixed model might be better for this data is that we can allow for dependence between certain observations. Intuitively, it seems reasonable that observations indicating the Democratic candidate's share from the same year and in the same region influence each other. One possible explanation could be that the states from the same region have a lot more interaction with each other and possibly even share the same newspapers, which can influence the peoples voting preferences.
+In this report we built a statistical model for the US presidential elections between 1948 and 1992. We found that especially the September poll is a strong predictor for the later elections. For our final model, we started by using a linear model and then moved to a linear mixed model, with a random effect for the interaction between `year` and `region`. The reason why a linear mixed model might be better for this data is that we can allow for dependence between certain observations. Intuitively, it seems reasonable that observations indicating the Democratic candidate's share from the same year and in the same region influence each other. One possible explanation could be that the states from the same region have a lot more interaction with each other and possibly even share the same newspapers, which can influence the peoples voting preferences.
 
-In general, whether to add a random effect to a model or not can be a hard question and also lies in the nature of how we look at a certain variable. For example, if we just want to account for different values in different groups without interpreting these too much, a random effect may be a good choice. If however we are interested in exactly the variation of different groups and want to quantify and describe this effect, adding a fixed effect for the variable containing these groups might be the better choice.
+In general, whether to add a random effect to a model or not can be a hard question and also lies in the nature of how we look at a certain variable. For example, if we just want to account for different values in different groups without interpreting these too much, a random effect may be a good choice. If however we are interested in exactly the variation of different groups and want to quantify and describe this effect, adding a fixed effect for the variable containing these groups might be the better choice. In the case of factor variables, random effects have the advantage of not taking a full degree of freedom per level, which can be useful if there are a lot of levels present in the factor variable.

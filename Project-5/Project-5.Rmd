@@ -1,6 +1,6 @@
 ---
 title: "Project-5"
-author: "Hannes"
+author: "Hannes Gubler"
 date: "2023-05-01"
 output: 
   bookdown::html_document2:
@@ -65,25 +65,25 @@ A time series is defined as a stochastic process $(X_t, t \in T)$, where in our 
 2. $\mathbb{E}[X_t] = \mu \quad \forall t \in T$
 3. $\text{cov}(X_t,X_s) = \text{cov}(X_{t+h}, X_{s+h}) \quad \forall t,s,h$ such that $t,s,t+h,s+h \in T$
 
-Even tough it is impossible to prove stationarity, we can find evidence against it. The major evidences against stationarity are
+Even tough it is impossible to prove stationarity in practice, we can find evidence against it. The major evidences against stationarity are
 
 * a trend
 * seasonality
 * non-constant variance
 * structural changes in the mean or in the dependency.
 
-If non constant variance is present, a transformation of the data is needed (e.g. log transformation).
+If non constant variance is present, a transformation of the data ican be applied (e.g. log transformation).
 
 To deal with a trend and/or seasonality, we decompose our time series, that is $X_t = T_t + S_t + Y_t$ where $T_t$ denotes the trend component, $S_t$ denotes the seasonal component and $Y_t$ denotes the stationary remainder. Then we can apply (seasonal) differencing to the time series $(X_t)$, that is 
 
 * In the case where a trend is present, $X_t = T_t + Y_t$ with $T_t \approx T_{t-1}$: $X_t - X_{t-1}$ is approximately stationary (differencing).
 * In the case where seasonality is present, $X_t = S_t + Y_t$ with $S_t \approx S_{t-s}$: $X_t - X_{t-s}$ is approximately stationary (seasonal differencing).
 
-Note that by differencing $k$-times, any polynomial trend of degree $k$ can be reduced to a single drift. Furthermore seasonal differencing can take care of a trend in some cases.
+Note that by differencing $k$-times, any polynomial trend of degree $k$ can be reduced to a single drift. Furthermore, seasonal differencing can take care of a trend in some cases.
 
 We define a time series $(Z_t, t \in \mathbb{Z})$ as *white noise* if it is stationary, $\mathbb{E}[Z_t]=0$ $\forall t$ and $\text{cov}(X_t, X_{t+h}) = 0$ $\forall h \neq 0$. From now on $(Z_t, t \in \mathbb{Z})$ will always denote white noise.
 
-Our methods from the following sections are a combination of (seasonal) differencing with the processes MA$(q)$ and AR$(p)$, where we define the latter ones as follows.
+Our methods used in the following sections are a combination of (seasonal) differencing with the processes MA$(q)$ and AR$(p)$, where we define the latter ones as follows.
 
 * $(X_t, t\in \mathbb{Z})$ is a moving average of order q, denoted by MA$(q)$, if 
 $$
@@ -95,7 +95,7 @@ $$
 X_t = Z_t + \phi_1 X_{t-1} + ... +  \phi_p X_{t-p}
 $$
 
-So an AR$(p)$ process can be interpreted as a weighted average of the last $p$ observations plus some white noise. A MA$(q)$ process can be interpreted as a weighted average of the last $q$ noise observations, so its based on the error that the process was not able to predict. An example for an MA$(q)$ process is the procedure of designing a recipe, where the amount of an ingredient depends on the amount that was missing/too much in the last try. 
+So an AR$(p)$ process can be interpreted as a weighted average of the last $p$ observations plus some white noise. A MA$(q)$ process can be interpreted as a weighted average of the last $q$ noise observations, so its based on the error that the process was not able to predict. An example for an MA$(q)$ process could be the procedure of designing a recipe, where the amount of an ingredient depends on the amount that was missing/too much in the last try. 
 
 We denote the combination of an AR$(p)$ and MA$(q)$ process as ARMA$(p,q)$. If we include differencing $d$ times, we denote the model by ARIMA$(p,d,q)$. Then, a SARIMA model is, roughly speaking, an ARIMA$(p,d,q)$ process taking into account seasonality. There are a total of 6 hyperparameters to define in a SARIMA model, denoted by SARIMA$(p,d,q,P,D,Q)$ where we use
 
@@ -106,9 +106,9 @@ We denote the combination of an AR$(p)$ and MA$(q)$ process as ARMA$(p,q)$. If w
 * $D$ for the number of seasonal differencing.
 * $Q$ for the order of the MA component on a seasonal level (MA process on the series $(X_{ts})$), where $s$ is the frequency of the season).
 
-Once we select hyperparameters of the SARIMA model, the parameters are estimated by Gaussian MLE. In the following sections, we allow all our SAMIRA models to include a drift parameter, which acts like an intercept.
+Once we select hyperparameters of the SARIMA model, the parameters are estimated by Gaussian MLE. In the following sections, we allow all our SARIMA models to include a drift parameter, which acts like an intercept.
 
-## Samira Model Building
+## SARIMA Model Building
 
 As we saw in Figure (\@ref(fig:timeseriesplot)), there is a clear trend visible. To figure our differencing parameter $d$ we fit two linear models to our data: One with linear dependence on time and one with quadratic dependence on time. In both models we include a factor variable `month` specifying the month of the corresponding observation. We then look at the fits of these regressions and their residuals in Figure (\@ref(fig:trendanalyse)).
 
@@ -143,7 +143,7 @@ res_quad_plot = ggplot(lm_data, aes(x = time, y = res_quad)) +
 library(ggpubr)
 ggarrange(fit_lin_plot, fit_quad_plot, res_lin_plot, res_quad_plot, nrow = 2, ncol = 2)
 ```
-Visually the model with quadratic dependency on time seems to be a better approximation of the time series, but still not a perfect approximation which can be seen in the residuals. Looking back at Figure (\@ref(fig:timeseriesplot)), also a piecewise linear trend might be plausible, with a knot around 1960. So in our Samira model, we will analyze the possibilities of differencing once or twice, to adjust for a linear or quadratic trend.
+Visually the model with quadratic dependency on time seems to be a better approximation of the time series, which can be seen in the fit and especially in the residuals, where we observe a non-linear pattern in the residuals from the linear fit. Looking back at Figure (\@ref(fig:timeseriesplot)), also a piecewise linear trend might be plausible, with a knot around 1960. So in our SARIMA model, we will analyze the possibilities of differencing once or twice, to adjust for a linear or quadratic trend.
 
 To determine the parameters $p$ and $q$ we look at the (partial) autocorrelation functions (ACF and PACF) in Figure (\@ref(fig:PACF)). The ACF $\rho(h)$ specifies the correlation between $X_t$ and $X_{t+h}$. The PACF $\alpha(h)$ specifies, roughly speaking, the correlation between $X_t$ and $X_{t+h}$ that remains after the correlation due to all the intermediate observations $X_{t+1},...,X_{t+h-1}$. We have the following characteristics.
 
@@ -171,11 +171,11 @@ par(mfrow = c(1, 2))
 plot(acf_ts, main = "ACF")
 plot(pacf_ts, main = "PACF")
 ```
-First, note that the ACF plot starts at lag zero and the PACF plot starts at lag one. We observe an exponential like decay in the ACF plot and a cut off at lag 2, suggesting an ARMA(2,0) model according to Table (\@ref(tab:charactable)). Following Figure (\@ref(fig:trendanalyse)) we chose to analyze the possibilities of differencing once or twice, hence so far we have the possible models ARIMA(2,1,0) and ARIMA(2,2,0).
+First, note that the ACF plot starts at lag zero (which is always one) while the PACF plot does not. We observe an exponential like decay in the ACF plot and a cut off after two months in the PACF plot, suggesting an ARMA(2,0) model according to Table (\@ref(tab:charactable)). Following Figure (\@ref(fig:trendanalyse)) we chose to analyze the possibilities of differencing once or twice, hence so far we have the possible models ARIMA(2,1,0) and ARIMA(2,2,0).
 
 To complete our SARIMA model we have to account for the seasonality. In Figure (\@ref(fig:timeseriesplot)) we did not observe a clear sign of seasonality. The reason for no seasonality could be that the values of our time series are anomalies from a reference value (global average). However, as most of the earths landmass is on the northern hemisphere, there still may be a summer/winter difference in the temperature anomalies and therefore seasonality in the time series. Hence we decide to compare both possibilities, $D = 1$ (seasonal differencing) and $D = 0$ (no seasonal differencing).
 
-To determine the parameters $P$ and $Q$, we again look at the ACF and PACF plots as for $p$ and $q$. However since we want to analyze the relationship between yearly observations from the same month we perform a seasonal differencing with lag 12 (for the months) before looking at ACF and PACF in Figure (\@ref(fig:seasonalanalysis)).
+To determine the parameters $P$ and $Q$, we again look at the ACF and PACF plots as for $p$ and $q$. However, as we may have seasonality in the data, we first apply seasoning differencing with lag 12 to our time series before looking at the ACF and PACF in Figure (\@ref(fig:seasonalanalysis)) to determine the seasonal parameters $P$ and $Q$.
 
 ```{r seasonalanalysis, fig.width=9, fig.height=4, fig.cap="ACF and PACF of temperature anomalies time series after applying seasonal differencing with lag 12."}
 # difference time series oce with lag 12 and calculate their acf and pacf
@@ -195,7 +195,7 @@ In the ACF plot we observe a cut-off after lag one and in the PACF a cut-off aft
 * SARIMA(2,1,0,2,1,1)
 * SARIMA(2,2,0,2,1,1)
 
-To decide which model to take, we look at their AIC as well as their predictive power. To analyze their predictive power, we take 90% of the dataset as training data and then fit the above SARIMA models for the training data and calculate the MSE of a one step forecast. Iteratively in each step we add the next observation of the time series to the training data and again calculate the MSE of a one step forecast for the above models, until we reach the end of the time series. Finally we compute the averages over the MSE's for each model. Table (\@ref(tab:modelcomp)) shows the AIC and average predictive error for each SARIMA model.
+To decide which model to take, we look at their AIC as well as their predictive power. To analyze their predictive power, we take 90% of the dataset as training data, fit the above SARIMA models for the training data and calculate the MSE of a one step forecast. Iteratively in each step we add the next observation of the time series to the training data and again calculate the MSE of a one step forecast for the above models, until we reach the end of the time series. Finally we compute the averages over the MSE's for each model. Table (\@ref(tab:modelcomp)) shows the AIC and the described predictive error for each SARIMA model.
 
 ```{r modelcomp, warning=FALSE}
 # fit potential models
@@ -215,11 +215,12 @@ pred_error = as.numeric(mean_pred$`rowMeans(err)`)
 fit_comp$`Predictive Error` = pred_error[1:4]
 rownames(fit_comp) = c("SARIMA(2,1,0,2,0,1)", "SARIMA(2,2,0,2,0,1)", 
                        "SARIMA(2,1,0,2,1,1)", "SARIMA(2,2,0,2,1,1)")
-kable(fit_comp, digits = 4, caption = "AIC and average predictive error for the SARIMA models.")
+kable(fit_comp, digits = 4, caption = "AIC and predictive error for the SARIMA models.")
 ```
+
 The first model (SARIMA(2,1,0,2,0,1)) has the lowest AIC and the second lowest predictive error, while the SARIMA(2,1,0,2,1,1) model has the second lowest AIC and the lowest predictive error. Therefore we proceed with these two models.
 
-Another possibility to chose the parameters of a SARIMA model is using the automated model selection function `auto.arima` from the `forecast` R package. It searches the best model according to an information criterion (AIC in our case). 
+Another possibility to chose the parameters of a SARIMA model is using the automated model selection function `auto.arima` from the `forecast` package. It searches the best model according to an information criterion (AIC in our case). 
 
 ```{r autoselect}
 auto_sarima = auto.arima(ts_temp)
@@ -235,7 +236,7 @@ rownames(compareauto) = c("SARIMA(2,1,0,2,0,1)", "SARIMA(2,1,0,2,1,1)", "SARIMA(
 kable(compareauto, digits = 4, caption = "AIC and average predictive error for the SARIMA models.")
 ```
 
-Based on this table it is hard to decide which model to chose, as none dominates the others across both criterions. Hence we decide based on their residual diagnostics. The residuals of a SARIMA model should be white noise and we therefore we look at the ACF and PACF plots of the residuals for the three models from Table (\@ref(tab:compareauto)).
+Based on this table it is hard to decide which model to chose, as none dominates the others across both criterions. Hence we decide based on their residual diagnostics. The residuals of a SARIMA model should be white noise and we therefore look at the ACF and PACF plots of the residuals for the three models from Table (\@ref(tab:compareauto)).
 
 ```{r residcomp, fig.height=8, fig.width= 9, fig.cap="ACF and PACF plot of the resodials to compare the SARIMA models."}
 par(mfrow = c(3,2))
@@ -261,7 +262,7 @@ ggplot(residuals, aes(sample = res)) +
   ggtitle("Normal QQ Plot for Residuals")
 ```
 
-The normal QQ-plot looks fine and therefore we may assume that the residuals of the SARIMA(2,1,3,1,0,0) model are approximately normal. Therefore we keep this model to build forecasts in the next section. In Table (\@ref(tab:coeftable)) we look at the coefficients of our final model.
+The normal QQ-plot looks fine and therefore we may assume that the residuals of the SARIMA(2,1,3,1,0,0) model are approximately normal. Hence we keep this model to build forecasts in the next section. In Table (\@ref(tab:coeftable)) we look at the coefficients of our final model.
 
 ```{r coeftable}
 coef_table = as.data.frame(coef(auto_sarima))
@@ -290,9 +291,9 @@ In this section we use a generalized least squares (gls) model
 $$
 Y = X\beta + \epsilon, \quad \epsilon \sim \mathcal{N}(0, \sigma^2 \Sigma),
 $$
-where $\Sigma$ will allow for a dependency structure between observations (the observations of our temperature anomalies time series are obviously not independent) to test whether we have a linear, quadratic or exponential trend in our temperature anomalies. To estimate the dependency structure $\Sigma$ we employ an ARMA model for the residuals of a linear model with the temperature anomalies as response. The predictors of the linear model are `month` and `time`, as well as quadratic and exponential dependencies on `time` as predictors. The reason why we only use an ARMA model (instead of a full SARIMA model) is that by fitting a linear model for the temperature anomalies we hope to remove the trend, and we remove the seasonality by having `month` as predictor. Therefore we can hope that our time series of the residuals is stationary.
+where $\Sigma$ will allow for a dependency structure between observations (the observations of our temperature anomalies time series are obviously not independent) to test whether we a linear, a quadratic or an exponential trend in our temperature anomalies is most compatible with the data. To estimate the dependency structure $\Sigma$ we employ an ARMA model for the residuals of a linear model with the temperature anomalies as response. The predictors of this linear model are `month` and `time`, as well as quadratic and exponential dependencies on `time`. The reason why we only use an ARMA model for the residuals (instead of a full SARIMA model) is that by fitting a linear model for the temperature anomalies we hope to remove the trend, and we remove the seasonality by having `month` as predictor. Therefore, after visually verifying the residuals of the linear model, we may assume that our time series of the residuals is stationary.
 
-So first in Figure (\@ref(fig:linreg)) we look at the time series of the residuals and its ACF and PACF to determine the parameters of the ARMA model.
+So in Figure (\@ref(fig:linreg)) we look at the time series of the residuals and its ACF and PACF to determine the parameters of the ARMA model.
 
 ```{r linreg, fig.cap="Time series of the residuals corresponding to the linear model with the temperature anomalies as response and time, month, a quadratic and an exponential dependency on time as predictors."}
 lm_data$time = lm_data$time / 10
@@ -301,9 +302,10 @@ residuals = full_reg$residuals
 ts_residuals = ts(residuals, start = 1950, frequency = 12)
 PlotACF(ts_residuals, main = "Residuals Time Series")
 ```
-First we note that, as expected, our time series looks more or less stationary and there is no clear sign of seasonality and which justifies an ARMA model. Furthermore, by looking at the ACF and PACF plots, we decide to go for an AR(2) model (according to Table (\@ref(tab:charactable))). 
 
-To estimate the dependency structure $\Sigma$ for our gls model we use the `corARMA` function from the `nlme` with our AR(2) model. The predictors in our gls model are `time` and the factor variable `month`. Furthermore we add an exponential dependence on time in our model and perform an anova type two test to test whether we have an exponential dependency on time or not. 
+First we note that, as expected, our time series looks more or less stationary and there is no clear sign of seasonality, which justifies an ARMA model. Furthermore, by looking at the ACF and PACF plots, we decide to go for an AR(2) model (according to Table (\@ref(tab:charactable))). 
+
+To estimate the dependency structure $\Sigma$ for our gls model we use the `corARMA` function from the `nlme` package. This function creates a dependency structure $\Sigma$ of the time series based on an AR(2) model. The predictors in our gls model are `time` and the factor variable `month`. Furthermore we add an exponential dependency on time in our model and perform an anova type two test to test whether we have an exponential dependency on time or not. 
 
 ```{r expdep}
 load("data/lin_anova.RData")
@@ -322,12 +324,12 @@ kable(square_anova, digits = 4, caption = "Type two anova test to test for our g
 
 According to the anova Table (\@ref(tab:quaddep)), a quadratic dependency on time is significant.
 
-We therefore conclude that a quadratic dependence on time might be a plausible scenario for the future development of temperature anomalies, if we do not change our behavior. 
+We therefore conclude that a quadratic dependence on time might be a plausible scenario for the future development of the temperature anomalies, if we do not change our behavior. 
 
 # Conclusion
 
-In this report, we used a SARIMA model for a time series with temperature anomalies from 1950 to 2022. This model allowed us to produce forecasts for the temperature development in the future. We detected a light seasonal effect in the temperature anomalies that can possibly be explained with the fact that most of the earth's landmass is in the northern hemisphere and hence anomalies in the summer behave differently than anomalies in the winter.
+In this report, we used a SARIMA model for a time series containing temperature anomalies from 1950 to 2022. This model allowed us to produce forecasts for the temperature development in the future. We detected a light seasonal effect in the temperature anomalies that can possibly be explained with the fact that most of the earth's landmass is in the northern hemisphere and hence anomalies in the summer behave differently than anomalies in the winter.
 
-Furthermore, by using time series regression, we were able to refute the hypothesis of an exponential trend for the temperature development and suggested that a quadratic trend might be a more plausible scenario. However, these forecasts should be taken with caution as it is obviously extremely difficult to predict the form of the future global warming as it strongly depends on factors like political policies or natural feedback mechanisms.
+Furthermore, by using time series regression, we were able to refute the hypothesis of an exponential trend for the temperature development and suggested that a quadratic trend might be a more plausible scenario. However, these forecasts should be taken with caution as it is extremely difficult to predict the form of the future global warming because it strongly depends on factors like political policies or natural feedback mechanisms.
 
 

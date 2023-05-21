@@ -81,8 +81,8 @@ cdfbilognorm = function(x, mu1, mu2, sigma1, sigma2, tau) {
 }
 
 # initialize parametric bootstrap
-set.seed(100) # for reproducability
-n_bootstrap = 100 # number of bootstrap samples
+set.seed(3) # for reproducability
+n_bootstrap = 30 # number of bootstrap samples
 ndata_boot = 705044 # number of data in bootstrap sample (same as original data)
 
 # generate bootstrap datasets

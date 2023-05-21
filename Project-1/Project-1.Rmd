@@ -48,7 +48,6 @@ for (i in 1:length(num_inbin)) {
 ggplot(data.frame(jittered_data), aes(x = jittered_data)) + 
   geom_histogram(color="black", binwidth = 0.05) + 
   labs(title = "Histogram of Jittered Data", x = "Jittered Diameters")
-#hist(jittered_data, breaks=1000)
 ```
 
 We can see that the assumption of a bi-log-normal distribution seems valid as we have two bumps that are slightly right scewed, as we would expect from a mixture of two log-normal distributions.
@@ -185,7 +184,7 @@ In this section we test whether our data supports the hypothesis if its distribu
 $$
 H_0: F \in \mathcal{F},\qquad H_1: F \notin \mathcal{F}.
 $$
-To perform this test, we proceed as follows: We create 100 bootstrap datasets containing 705044 datapoints (same number as original dataset) by sampling from a bi-log-normal distribution using the optimized parameters from before. After that, for each bootstrap dataset, we perform the following steps.
+To perform this test, we proceed as follows: We create $B$ bootstrap datasets containing 705044 datapoints (same number as original dataset) by sampling from a bi-log-normal distribution using the optimized parameters from before. After that, for each bootstrap dataset, we perform the following steps.
 
 1. Bin the data using the bins of the original dataset.
 2. Jitter the data in the same way as we did with the original dataset.
@@ -205,62 +204,15 @@ Now our estimate for the p-value is given by
 $$
 \widehat{\text{p-val}} = \frac{1}{B+1}\left( 1 + \sum_{b=1}^B \mathbb{I}_{[T_b^\star \geq T]} \right),
 $$
-where $B =$ 100 is the number of bootstrapped datasets. 
+where $B =$ 33 is the number of bootstrapped datasets (of course a much higher number would be desirable here but due to limitations in computational power we keep it low here).
+
 ```{r parametric bootstrap, echo=FALSE}
-n_bootstrap = 100 # number of bootstrap samples
-ndata_boot = 500 # number of data in bootstrap sample
-bootstrap_data = matrix(nrow = ndata_boot, ncol = n_bootstrap) 
-for (i in 1:n_bootstrap) {
-  bootstrap_data[, i] = rbilnorm(ndata_boot, mu1_opt, mu2_opt, sigma1_opt, sigma2_opt, tau_opt)
-}
-#bin the bootstrap data
-binned_bootstrap_data = matrix(nrow = length(data$X), ncol = n_bootstrap)
-for (i in 1:n_bootstrap) {
-  for (j in 1:length(data$X)) {
-    counter = 0
-    for (k in 1:ndata_boot) {
-      if (data$startpoint[j] <= bootstrap_data[k, i] && data$endpoint[j] > bootstrap_data[k, i]) {
-        counter = counter + 1
-      }
-    }
-    binned_bootstrap_data[j, i] = counter # number of data points in j-th bin
-  }
-}
+# The calculations can be found in the seperate script "bootstrap_script.R"
+```
+Performing these calculations we observe a p-value of 0.7741935 This is quite a large p-value and hence we do not reject $H_0$, which supports the assumption of a bi-log-normal model for our data. So we can use our optimized parameters to simulate new datapoints of our snowflake experiment, as described below Table (\@ref(tab:paramtable)). To finish this section, we provide a final plot containing the empirical CDF of our data and the parametrized CDF using our optimized parameters in Figure (\@ref(fig:CDF)).
 
-# jitter the binned bootstrap samples
-jittered_boot_data = matrix(nrow = ndata_boot, ncol = n_bootstrap)
-for (k in 1:n_bootstrap) {
-  counter = 0
-  for (i in 1:length(data$X)) {
-    interval_length = data$endpoint[i] - data$startpoint[i]
-    for(j in 1:binned_bootstrap_data[i, k]) {
-      if (binned_bootstrap_data[i, k] == 0) {
-        next
-      }
-      jittered_boot_data[j + counter, k] = data$startpoint[i] + 
-        runif(1, min = 0, max = interval_length)
-    }
-    counter = counter + binned_bootstrap_data[i, k]
-  }
-}
-
-#estimate the parameters for each bootstrap sample
-estim_boot = matrix(nrow = 5, ncol = n_bootstrap)
-for (i in 1:n_bootstrap) {
-  estim_boot[, i] = EM(jittered_boot_data[, i], mu1, mu2, sigma1, sigma2, tau)
-}
-
-#use optimizetion as before for the binned bootstrap data
-estim_boot_opt = matrix(nrow = 5, ncol = n_bootstrap)
-for (i in 1:n_bootstrap) {
-  out = optim(par = estim_boot[, i], fn = negloglikelihood, method="Nelder-Mead",
-              data = data, num_inbin = binned_bootstrap_data[, i])
-  estim_boot_opt[, i] = as.numeric(unlist(out[1]))
-}
- 
-#Calculate the kolmogorov smirnoff statisitc
-#To calculate it we create data in such a way to create ecdf for binned data
-#That means we will put each datapoint at the end of its bin
+```{r CDF, echo=FALSE, fig.align='center', fig.cap="Empirical CDF of the original binned data with a bi-log-normal CDF parametrized by our optimized parameters."}
+# calculate empirical cdf
 counter = 0
 ecdf_data = rep(0, n)
 for (i in 1:length(num_inbin)) {
@@ -272,56 +224,9 @@ for (i in 1:length(num_inbin)) {
   }
   counter = counter + num_inbin[i]
 }
-ecdf_binned = ecdf(ecdf_data) #now calculate ecdf using the prepared data
-grid = seq(from = 0, to = 3.25, by = 0.01) #grid to compare distribution functions on (for KS statistic)
-kol_smir = 0 
-for (i in 1:length(grid)) {
-  a = abs(ecdf_binned(grid[i]) - 
-            cdfbilognorm(grid[i], mu1_opt, mu2_opt, sigma1_opt, sigma2_opt, tau_opt))
-  if (a > kol_smir) {
-    kol_smir = a
-  }
-}
-
-#calculate T_b^* (similar to KS statistic)
-T_b = rep(0, n_bootstrap)
-for (k in 1:n_bootstrap) {
-  counter = 0
-  ecdf_boot_data = rep(0, ndata_boot)
-  for (i in 1:length(data$X)) {
-    for(j in 1:binned_bootstrap_data[i, k]) {
-      if (binned_bootstrap_data[i, k] == 0) {
-        next
-      }
-      ecdf_boot_data[j + counter] = data$endpoint[i] 
-    }
-    counter = counter + binned_bootstrap_data[i, k]
-  }
-  ecdf_boot = ecdf(ecdf_boot_data)
-  for (j in 1:length(grid)) {
-    a = abs(ecdf_boot(grid[j]) - 
-              cdfbilognorm(grid[j], estim_boot_opt[1, k], estim_boot_opt[2, k], 
-                           estim_boot_opt[3, k], estim_boot_opt[4, k], estim_boot_opt[5, k]))
-    if (a > T_b[k]) {
-      T_b[k] = a
-    }
-  }
-}
-
-#calculate the estimated p value
-a = 0
-for (k in 1:n_bootstrap) {
-  if (T_b[k] > kol_smir) {
-    a = a + 1
-  }
-}
-p = 1 / (n_bootstrap + 1) * (a + 1)
-print(p)
-```
-Performing these calculations we obvserve a p-value of 0.7722772. This is quite a large p-value and hence we do not reject $H_0$, which supports the assumption of a bi-log-normal model for our data. So we can use our optimized parameters to simulate new datapoints of our snowflake experiment, as described below Table (\@ref(tab:paramtable)). To finish this section, we provide a final plot containing the empirical CDF of our data and the parametrized CDF using our optimized parameters in Figure (\@ref(fig:CDF)).
-
-```{r CDF, echo=FALSE, fig.align='center', fig.cap="Empirical CDF of the original binned data with a bi-log-normal CDF parametrized by our optimized parameters."}
+# calculate parametrized cdf
 ecdf_param = cdfbilognorm(grid, mu1_opt, mu2_opt, sigma1_opt, sigma2_opt, tau_opt)
+# plot empirical cdf and parametrized cdf
 ggplot() + 
   stat_ecdf(aes(x = ecdf_data, color = "Empirical CDF")) + 
   geom_line(aes(x = grid, y = ecdf_param, color = "Bi-Log-Normal CDF")) + 
