@@ -4,7 +4,7 @@ This repository contains the projects completed during the Applied Statistics co
 
 ## Project Descriptions
 
-1. Project-1: Snowflake Diameters (finding)
+1. Project-1: Snowflake Diameters (Statistical model for binned data)
 2. Project-2: Online Shopping (Logistic Regression)
 3. Project-3: Home effect in the English Premier League (Poisson regression)
 4. Project-4: US Presidential Elections (Linear Mixed Models)
