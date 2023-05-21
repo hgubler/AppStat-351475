@@ -56,7 +56,7 @@ Lastly we have the regional variables
 
 The year 1964 was special because the Democratic candidate was able to completely dominate the elections, also in the south but with an exception of the deep south states. The other regional variables (`south`, `new_england_1972`, `west_1976`) are there to adjust for known and expected outliers (very unusual results in certain states and years) instead of removing them from the data.
 
-In our analysis we will treat `year`, `state` as well as all the regional variables as factors, while the remaining variables will be treated as numerical. Furthermore we add an additional factor `region` to the dataset dividing the states in the regions "Northeast", "South", "Midwest" and "West. Lastly we remove all the observation with missing values from our data.
+In our analysis we will treat `year`, `state` as well as all the regional variables as factors, while the remaining variables will be treated as numerical. Furthermore we add an additional factor `region` to the dataset dividing the states in the regions "Northeast", "South", "Midwest" and "West". Lastly we remove all the observation with missing values from our data.
 
 ```{r preprocessing}
 library("readr") # to load data
@@ -118,7 +118,7 @@ data = na.omit(data)
 # Linear Model {#linmod}
 
 For our first linear model, we certainly want to include `state` to predict `dvote`. Since `state` is a factor variable, we can not include the factor `region` to the same model since it would make the design matrix singular. The same goes for `state_ideology`, which does not change over the years and hence is the same number for two observations from the same state (and thus makes the design matrix singular since we already include `state`). Similarly, we want to include the factor `year` in our first model, which will not allow us to use any of the nationwide variables, since a nationwide variable takes the same value for all observations from one year.
-So our linear model uses the predictors `dvote_last`, `dvote_last2`, `home_state`, `home_state_vice`, `dmajor_leg`, `econ_growth_inc`, `ideology_comp`, `cath_1960`, `south`, `south_1964`, `deep_south_1964`, `new_england_1964`, `new_england_1972` and `west_1976` to model the response `dvote`. First we look at the type two anova test for our linear model, which compares for each coefficient the full model vs the model with all predictors but not the one corresponding to the specific coefficient.
+So our linear model includes the predictors `dvote_last`, `dvote_last2`, `home_state`, `home_state_vice`, `dmajor_leg`, `econ_growth_inc`, `ideology_comp`, `cath_1960`, `south`, `south_1964`, `deep_south_1964`, `new_england_1964`, `new_england_1972` and `west_1976` to model the response `dvote`. First we look at the type two anova test for our linear model, which compares for each coefficient the full model vs the model with all predictors but not the one corresponding to the specific coefficient.
 
 ```{r anova}
 # create model described as above

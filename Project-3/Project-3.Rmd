@@ -13,7 +13,7 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 
 # Introduction
 
-There is no debate about the existence of the home effect in football, meaning that the home team in a football game has a general advantage to win. However the opinions differ when we try to explain the reason for this advantage. Some people may suggest that the home effect in football is due to the crowd support, whereas others would say that it is due to the familiarity with the stadium.
+There is no debate about the existence of a home effect in football, meaning that the home team in a football game has a general advantage to win. However the opinions differ when we try to explain the reason for this advantage. Some people may suggest that the home effect in football is due to the crowd support, whereas others would say that it is due to the familiarity with the stadium.
 In this report we will analyze data containing all the football games with results from the English premier league (EPL) seasons 18/19, 19/20, 20/21 and 21/22. In the 20/21 season no fans were allowed in the stadiums due to the Covid-19 pandemic. Accordingly, in the following sections we will use the circumstance of no fans being allowed to the EPL stadiums to determine if the home effect changed during Covid and analyze the development after Covid. This analysis will help us to quantify the effect of the home crowd in a football game. For our analysis we quantify the home effect as the expected number of goals from the home team and will try to answer the above questions by modelling the data using a poisson regression model.
 
 # Data Exploration
@@ -78,7 +78,7 @@ data = data %>%
   rename(home_team = HomeTeam, away_team = AwayTeam, 
          fulltime_home_goals = FTHG, fulltime_away_goals = FTAG)
 ```
-First, we convert the variable `date` to a factor variable named `covid` with levels 0 (pre-Covid, 18/19 and 19/20 seasons), 1 (Covid, 20/21 season) and 2 (post-Covid, 21/22 season). Using the information from these variables, we create a table with the full time result (home win, draw or away win) and the time frame (pre-Covid, Covid and post-Covid) to visually deduce if there could be an effect or not.
+First, we convert the variable `date` to a factor variable named `covid` with levels 0 (pre-Covid, 18/19 and 19/20 seasons), 1 (Covid, 20/21 season) and 2 (post-Covid, 21/22 season). Using the information from these variables, we create a table containing the proportions of the full time result (home win, draw or away win) during the time frames pre-Covid, Covid and post-Covid to visually deduce if there could be an effect or not.
 
 ```{r exploretable}
 # create the table 
@@ -205,7 +205,7 @@ ggplot(data = res_data, aes(x = V2, y = V1)) +
   xlab("Home Residuals") + 
   ylab("Away Residuals")
 ```
-We immediately notice the two lines at bottom and left side of the plot, so we have a lot of residuals with the same value. These are the residuals with the lowest values and we can verify that they correspond to observations where the home/away team scored 0 goals. Additionally we observe some light tail dependence, meaning that in more extreme events the home goals influence the away goals from the same game and vice versa. For example if one team scores a lot of goals it could influences the opponents number of goals. Other than that there are no clear patterns on the plot, so the dependence of home team goals and away team goals from the same match seems to be not too strong.
+We immediately notice the two lines at bottom and left side of the plot, so we have a lot of residuals with the same value. These are the residuals with the lowest values and we can verify that they correspond to observations where the home/away team scored 0 goals. Additionally we observe some light tail dependence, meaning that in more extreme events the home goals influence the away goals from the same game and vice versa. For example if one team scores a lot of goals in one game it could influences the opponents number of goals. Other than that there are no clear patterns on the plot, so the dependence of home team goals and away team goals from the same match seems to be not too strong.
 
 Next, we analyze the residuals in all seasons 18/19, 19/20, 20/21 and 21/22. We would like the residuals to share a similar distribution over the four seasons, so the relationship between the response and the predictors is consistent across the different seasons (note that e.g. the teams change players each year and will therefore not perform on the same level every year, this could lead to different relationships in different seasons).
 

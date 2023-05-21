@@ -20,7 +20,7 @@ The outline of the remainder of this report is as follows: In Section (\@ref(exp
 
 # Descriptive Data Exploration {#expl}
 
-Since we already have access to the expert knowledge telling us that the bi-log-normal distribution is a good model for the data, our main goal in this section is to check whether this is a viable assumption. It would be easy to just plot a histogram of the data, but since we only have the data in bins of different sizes, it will be slightly more difficult. So before plotting the histogram in Figure (\@ref(fig:histogram)), we jitter the data using a uniform distribution inside each bin. Also, we set the endpoint of the last bin to 3.25 to make the size of the last bin more comparable to the other bins (the last bin doesn't contain any datapoint so this will not affect our future calculations).
+Since we already have access to the expert knowledge telling us that the bi-log-normal distribution is a good model for the data, our main goal in this section is to check whether this is a viable assumption. It would be easy to just plot a histogram of the data, but as we only have the data in bins of different sizes, it will be slightly more difficult. So before plotting the histogram in Figure (\@ref(fig:histogram)), we jitter the data using a uniform distribution inside each bin. Also, we set the endpoint of the last bin to 3.25 to make the size of the last bin more comparable to the other bins (the last bin does not contain any datapoint so this will not affect our future calculations).
 
 ```{r histogram, echo=FALSE, fig.align="center", fig.cap="Histogram of the snowflake diameters after jittering the data using a uniform distribution in each bin."}
 library("ggplot2")
@@ -117,7 +117,7 @@ ggplot() +
                               'Bi-Log-Normal Density'='blue'))
 ```
 
-We can see two very similar curves, supporting our assumption of the bi-log-normal model. This plot is also useful to see that the EM algorithm converged to a reasonable solution.
+We observe two very similar curves, supporting our assumption of the bi-log-normal model. This plot is also useful to see that the EM algorithm converged to a reasonable solution.
 
 ## Optimization
 
@@ -204,12 +204,12 @@ Now our estimate for the p-value is given by
 $$
 \widehat{\text{p-val}} = \frac{1}{B+1}\left( 1 + \sum_{b=1}^B \mathbb{I}_{[T_b^\star \geq T]} \right),
 $$
-where $B =$ 33 is the number of bootstrapped datasets (of course a much higher number would be desirable here but due to limitations in computational power we keep it low here).
+where $B =$ 33 is the number of bootstrapped datasets (of course a much higher number would be desirable but due to limitations in computational power we keep it low here).
 
 ```{r parametric bootstrap, echo=FALSE}
 # The calculations can be found in the seperate script "bootstrap_script.R"
 ```
-Performing these calculations we observe a p-value of 0.7741935 This is quite a large p-value and hence we do not reject $H_0$, which supports the assumption of a bi-log-normal model for our data. So we can use our optimized parameters to simulate new datapoints of our snowflake experiment, as described below Table (\@ref(tab:paramtable)). To finish this section, we provide a final plot containing the empirical CDF of our data and the parametrized CDF using our optimized parameters in Figure (\@ref(fig:CDF)).
+Performing these calculations we observe a p-value of 0.7741935. This is quite a large p-value and hence we do not reject $H_0$, which supports the assumption of a bi-log-normal model for our data. So we can use our optimized parameters to simulate new datapoints of our snowflake experiment, as described below Table (\@ref(tab:paramtable)). To finish this section, we provide a final plot containing the empirical CDF of our data and the parametrized CDF using our optimized parameters in Figure (\@ref(fig:CDF)).
 
 ```{r CDF, echo=FALSE, fig.align='center', fig.cap="Empirical CDF of the original binned data with a bi-log-normal CDF parametrized by our optimized parameters."}
 # calculate empirical cdf
@@ -239,6 +239,6 @@ We see that a bi-log-normal distribution parametrized by our optimized parameter
 
 # Conclusion
 
-In this report, we were able to find statistical arguments to show that the snowflake diameters follow a bi-log-normal distribution. In addition to that, using the EM algorithm and optimization of the binned log likelihood, we were able to find a set of parameter estimates such that our parametrized bi-log-normal model describes the data very well. These estimates can be found in Table (\@ref(tab:paramtable)), and below an instruction on how to simulate new snowflake diameters using these estimates.
+In this report, we were able to find statistical arguments to show that the snowflake diameters follow a bi-log-normal distribution. In addition to that, using the EM algorithm and optimization of the binned log likelihood, we were able to find a set of parameter estimates such that our parametrized bi-log-normal model describes the data very well. These estimates can be found in Table (\@ref(tab:paramtable)), and below an instruction on how to simulate new snowflake diameters using them.
 
 The steps in this report show that even if we only have access to binned data there are possibilities to find an appropriate statistical model for the data. However, this requires some extra steps and we would always prefer non-binned data as it provides more information.

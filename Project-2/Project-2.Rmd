@@ -114,7 +114,7 @@ ggplot(data_long, aes(x = value)) +
 
 We see that some variables that we treat as factors have some levels with very few observations (e.g the factors `operating_systems` or `browser`). Levels with a small number of observations can be problematic because the model fits a single parameter for these levels which will have high variance due to the small number of datapoints. Therefore we merge small levels (less than 40 observations) within one factor variable into a new level called "others". 
 
-For the numerical variables, we see in Figure (\@ref(fig:histograms)) that a lot of them have a right scewed distribution, so we could log transform them to have more evenly spread out values. However they all have a lot of zero values so we rather take the square root of those variables, since it has a similar effect as the logarithm. (Another possibility would be to add one to every observation before taking the log, but we decide to go for the "simpler" transformation of taking the square root). Namely, we transform the numerical variables `administrative` `administrative_duration`, `bounce_rates`, `exit_rates`, `informational`, `informational_duration`, `page_values`, `product_related` and `product_related_duration` by applying the square root.
+For the numerical variables, we observe in Figure (\@ref(fig:histograms)) that a lot of them have a right scewed distribution, so we could log transform them to have more evenly spread out values. However they all have a lot of zero values so we rather take the square root of those variables, since it has a similar effect as the logarithm. (Another possibility would be to add one to every observation before taking the log, but we decide to go for the "simpler" transformation of taking the square root). Namely, we transform the numerical variables `administrative` `administrative_duration`, `bounce_rates`, `exit_rates`, `informational`, `informational_duration`, `page_values`, `product_related` and `product_related_duration` by applying the square root.
 
 ```{r factormerge&transformations}
 # loop over the factor variables and merge categories with small number of 
@@ -143,9 +143,9 @@ Now we are ready to build our first models in Section (\@ref(logreg)).
 
 # Logistic Regression Model Building {#logreg}
 
-In this section we build a logistic regression model to predict purchase. To compare two different models, we use Anova tables with the likelihood ratio test (which follows a Chi-squared distribution asymptotically), as well as the area under the curve (AUC) and the BIC criterion. 
+In this Section we build a logistic regression model to predict the response `purchase.` To compare two different models, we use Anova tables with the likelihood ratio test (which follows a Chi-squared distribution asymptotically), as well as the area under the curve (AUC) and the BIC criterion. 
 
-For a starting point, we fit a logistic model including all the predictors available in the data that we prepared in the section before. After that we look at the Type II Anova table. Type II Anova compares, for each predictor, the full model with the model excluding that specific predictor by a likelihood ratio test.
+For a starting point, we fit a logistic model including all the predictors available in the data that we prepared in the Section before. After that we look at the Type II Anova table. Type II Anova compares, for each predictor, the full model with the model excluding that specific predictor by a likelihood ratio test.
 
 ```{r type2anova}
 gm_all = glm(purchase ~ ., data=data, family="binomial") # model including all
@@ -163,7 +163,7 @@ kable(anova2,
       label = "type2anova")
 ```
 
-The type II Anova table suggests us that the predictors `product_related_duration`, `bounce_rates`, `exit_rates`, `page_vales`, `month`, `traffic_type` and `visitor_type` are significant at level 0.05. So we fit a model containing only these predictors, which is a submodel of the model containing all predictors. But we still need to examine this submodel because we could run into multiple testing issues by using only significant variables in Table (\@ref(tab:type2anova)) as we calculated 17 different p-values. So we compare the full model with the sub-model by an Anova model-submodel test, the AUC and BIC.
+The type II Anova table suggests us that the predictors `product_related_duration`, `bounce_rates`, `exit_rates`, `page_vales`, `month`, `traffic_type` and `visitor_type` are significant at level 0.05. So we fit a model containing only these predictors, which is a submodel of the model containing all predictors. But we still need to examine this submodel because we could run into multiple testing issues by using only significant variables in Table (\@ref(tab:type2anova)), as we calculated 17 different p-values. So we compare the full model with the sub-model by an Anova model-submodel test, the AUC and BIC.
 ```{r Anovamodsub}
 # fit a model containing only significant variables from above
 gm_sig = glm(purchase ~ product_related_duration + 
@@ -213,7 +213,7 @@ data_num %>%
   xlab("Predictor Value") +
   ggtitle("Residuals vs Predictor")
 ```
- First note that the residuals are often organized in two clouds since the response variable is binary, so it is useful to use a smoother to detect patterns. Also, it looks like we could have a quadratic dependency on `page_values`. So we fit a model containing all predictors from the current model together with a quadratic dependency on `page_values`. We then compare the models with and without quadratic dependency on "page_values" with an Anova model-submodel test, AUC and BIC.
+ First note that the residuals are often organized in two clouds since the response variable is binary, so it is useful to use a smoother to detect patterns. Also, it looks like we could have a quadratic dependency on `page_values`. So we fit a model containing all predictors from the current model together with a quadratic dependency on `page_values`. We then compare the models with and without quadratic dependency on `page_values` with an Anova model-submodel test, AUC and BIC.
 ```{r anovaquad}
 # fit a model with the significant predictors from before together with quadratic
 # dependence on page_values
