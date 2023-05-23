@@ -396,14 +396,13 @@ to reject <span class="math inline">\(H_0\)</span>. Clinical dietitians
 usually consider a significance level of 5%, therefore we set our
 significance level to 5%.</p>
 <p>In order to calculate the number of subjects needed, we also need to
-specify the desired <em>power level</em> of the test. The power level
-specifies the probability of correctly rejecting the Null Hypothesis
-<span class="math inline">\(H_0\)</span> when <span class="math inline">\(H_1\)</span> is true. In other words it measures
+specify the desired <em>power level</em> of the test. The power level is
+the probability of correctly rejecting the Null Hypothesis <span class="math inline">\(H_0\)</span> when <span class="math inline">\(H_1\)</span> is true. In other words it measures
 the ability of our statistical test to detect a lower blood glucose in
-group A than in group B. We choose our power level to be 80% (usual
+group 1 than in group 2. We choose our power level to be 80% (usual
 value for clinical dietitians), which means that there is an 80% chance
-of correctly detecting a lower blood glucose in Group A than in group
-B.</p>
+of correctly detecting a lower blood glucose in group 1 than in group
+1.</p>
 <p>Our statistical test will calculate a <em>p-value</em>. If the
 p-value is lower than our significance level of 5%, we reject the Null
 Hypothesis <span class="math inline">\(H_0\)</span> to conclude <span class="math inline">\(H_1\)</span>.</p>
@@ -413,7 +412,23 @@ Hypothesis <span class="math inline">\(H_0\)</span> to conclude <span class="mat
 <p>To statistically test <span class="math inline">\(H_0\)</span> vs
 <span class="math inline">\(H_1\)</span>, we use the so called <em>two
 sample t-test</em>, which is the usual test to determine whether two
-population means are equal or not.</p>
+population means are equal or not. When applying the two sample t-test
+to our data, we have the following assumptions.</p>
+<ul>
+<li>The observations (subjects) from group 1 should be independent to
+the observations from group 2.</li>
+<li>The observations from group 1 should have approximately the same
+variance as the observations from group 2. The variance in a group
+describes how spread out the set of blood glucose number is.</li>
+<li>The individuals have been assigned randomly to group 1 or group
+2.</li>
+</ul>
+<p>The last assumption is a little bit more technical: We assume that
+the data is approximately <em>normal distributed</em>. It refers to a
+specific shape of the data when we plot it on a graph. If the data is
+normally distributed, most of the datapoints concentrated around the
+middle. It turns out that many different kinds of data are normal
+distributed.</p>
 <pre><code>## [1] 29</code></pre>
 <p>-&gt; Need 29 samples in each group.</p>
 </div>

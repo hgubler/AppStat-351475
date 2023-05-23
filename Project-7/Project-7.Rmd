@@ -22,13 +22,20 @@ Our statistical test will either reject $H_0$ (and therefore assume that $H_1$ i
 
 To statistically test the Null Hypothesis vs the Alternative Hypothesis ($H_0$ vs $H_1$) we need to specify the *significance level*. The significance level is used to determine how strong the evidence needs to be in order to reject the Null Hypothesis $H_0$ and therefore conclude the Alternative Hypothesis $H_1$. It represents the probability of rejecting $H_0$ when it is actually true. If we decrease the significance level, it becomes more difficult to reject $H_0$. Clinical dietitians usually consider a significance level of 5%, therefore we set our significance level to 5%.
 
-In order to calculate the number of subjects needed, we also need to specify the desired *power level* of the test. The power level specifies the probability of correctly rejecting the Null Hypothesis $H_0$ when $H_1$ is true. In other words it measures the ability of our statistical test to detect a lower blood glucose in group A than in group B. We choose our power level to be 80% (usual value for clinical dietitians), which means that there is an 80% chance of correctly detecting a lower blood glucose in Group A than in group B.
+In order to calculate the number of subjects needed, we also need to specify the desired *power level* of the test. The power level is the probability of correctly rejecting the Null Hypothesis $H_0$ when $H_1$ is true. In other words it measures the ability of our statistical test to detect a lower blood glucose in group 1 than in group 2. We choose our power level to be 80% (usual value for clinical dietitians), which means that there is an 80% chance of correctly detecting a lower blood glucose in group 1 than in group 1.
 
 Our statistical test will calculate a *p-value*. If the p-value is lower than our significance level of 5%, we reject the Null Hypothesis $H_0$ to conclude $H_1$.
 
 # Statistical Test
 
-To statistically test $H_0$ vs $H_1$, we use the so called *two sample t-test*, which is the usual test to determine whether two population means are equal or not.
+To statistically test $H_0$ vs $H_1$, we use the so called *two sample t-test*, which is the usual test to determine whether two population means are equal or not. When applying the two sample t-test to our data, we have the following assumptions.
+
+* The observations (subjects) from group 1 should be independent to the observations from group 2.
+* The observations from group 1 should have approximately the same variance as the observations from group 2. The variance in a group describes how spread out the set of blood glucose number is.
+* The individuals have been assigned randomly to group 1 or group 2.
+
+The last assumption is a little bit more technical: We assume that the data is approximately *normal distributed*. It refers to a specific shape of the data when we plot it on a graph. If the data is normally distributed, most of the datapoints concentrated around the middle. It turns out that many different kinds of data are normal distributed.
+
 
 ```{r samplesize, echo = FALSE}
 library(pwr)
