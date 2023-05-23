@@ -30,3 +30,12 @@ Our statistical test will calculate a *p-value*. If the p-value is lower than ou
 
 To statistically test $H_0$ vs $H_1$, we use the so called *two sample t-test*, which is the usual test to determine whether two population means are equal or not.
 
+```{r samplesize, echo = FALSE}
+library(pwr)
+n = pwr.t.test(d = - 10 / 15, sig.level = 0.05, power = 0.8, type = "two.sample", 
+           alternative = "less")
+n_round = ceiling(n$n) # round to the next higher integer
+print(n_round)
+```
+-> Need 29 samples in each group.
+
