@@ -1,0 +1,32 @@
+---
+title: "Project-7"
+author: "Hannes Gubler"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+# Introduction
+
+In this report, the goal is to assist and explain the clinical dietitian to determine the required sample size for her experiment. The request is the following.
+
+*A clinical dietitian wants to compare two different diets, A and B, for diabetic patients. She hypothesizes that diet A (Group 1) will be better than diet B (Group 2), in terms of lower blood glucose. She plans to get a random sample of diabetic patients and randomly assign them to one of the two diets. At the end of the experiment, which lasts 6 weeks, a fasting blood glucose test will be conducted on each patient. She also expects that the average difference in blood glucose measure between the two groups will be about 10 mg/dl. The dietitian wants to know the number of subjects needed in each group assuming equal sized groups.*
+
+The hypothesis of the dietitian can be formulated as follows.
+
+* $H_0$ (Null Hypothesis): There is no difference in blood glucose level between group A and group B.
+* $H_1$ (Alternative Hypothesis): Diet A will be better than diet B (in terms of lower blood glucose).
+
+Our statistical test will either reject $H_0$ (and therefore assume that $H_1$ is true) or not reject $H_0$
+
+# Technical Terms
+
+To statistically test the Null Hypothesis vs the Alternative Hypothesis ($H_0$ vs $H_1$) we need to specify the *significance level*. The significance level is used to determine how strong the evidence needs to be in order to reject the Null Hypothesis $H_0$ and therefore conclude the Alternative Hypothesis $H_1$. It represents the probability of rejecting $H_0$ when it is actually true. If we decrease the significance level, it becomes more difficult to reject $H_0$. Clinical dietitians usually consider a significance level of 5%, therefore we set our significance level to 5%.
+
+In order to calculate the number of subjects needed, we also need to specify the desired *power level* of the test. The power level specifies the probability of correctly rejecting the Null Hypothesis $H_0$ when $H_1$ is true. In other words it measures the ability of our statistical test to detect a lower blood glucose in group A than in group B. We choose our power level to be 80% (usual value for clinical dietitians), which means that there is an 80% chance of correctly detecting a lower blood glucose in Group A than in group B.
+
+Our statistical test will calculate a *p-value*. If the p-value is lower than our significance level of 5%, we reject the Null Hypothesis $H_0$ to conclude $H_1$.
+
+# Statistical Test
+
+To statistically test $H_0$ vs $H_1$, we use the so called *two sample t-test*, which is the usual test to determine whether two population means are equal or not.
+
