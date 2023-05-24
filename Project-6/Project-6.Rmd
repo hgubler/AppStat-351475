@@ -1,7 +1,7 @@
 ---
 title: "Project-6"
 author: "Hannes Gubler"
-date: "2023-05-10"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: 
   bookdown::html_document2:
     toc: true
@@ -15,7 +15,7 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 
 The COVID-19 pandemic has had a huge impact on countries worldwide, including the United States. Therefore it is crucial to analyze the underlying patterns of the pandemic to be better prepared for similar scenarios in the future.
 
-In this report, we will work with daily Covid deaths data across all states of the United States. The data is from USAFacts and can be downloaded on their [website](https://usafacts.org/visualizations/coronavirus-covid-19-spread-map). We will analyze the data using Principal Component Analysis (PCA), which is a popular technique to examine data with a high number of dimensions (in our case the dimension of our data is the number of days in between 22.01.2020 and 29.04.2023, hence 1194 dimensions). We will interpret the first three principal components of our data as well as the low dimensional plot, which displays the data across the first two principal components in our case.
+In this report, we will work with daily Covid deaths data across all states of the United States. The data is from USAFacts and can be downloaded on their [website](https://usafacts.org/visualizations/coronavirus-covid-19-spread-map). We will analyze the data using Principal Component Analysis (PCA), which is a popular technique to examine data with a high number of dimensions (in our case the dimension of our data is the number of days in between 22.01.2020 and 29.04.2023, hence 1194 dimensions). After performing the PCA, we will interpret the first three principal components of our data as well as the low dimensional plot, which displays the data across the first two principal components in our case.
 
 # Data Preparation
 
