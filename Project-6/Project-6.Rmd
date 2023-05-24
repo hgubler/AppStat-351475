@@ -19,7 +19,9 @@ In this report, we will work with daily Covid deaths data across all states of t
 
 # Data Preparation
 
-Our data contains the cumulative number of Covid deaths for each state (observations in rows). In this report, we will use the following state abbreviations.
+Our data contains the cumulative number of Covid deaths for each state (observations in rows). We will apply PCA in Section (\@ref(PCA)) to the cumulative death numbers, however often display daily Covid deaths in our plots for better visual interpretability. 
+
+For our analysis, we use the following state abbreviations.
 
 * Alabama: AL
 * Alaska: AK 
@@ -72,7 +74,7 @@ Our data contains the cumulative number of Covid deaths for each state (observat
 * Wisconsin: WI 
 * Wyoming: WY 	
 
-In Figure (\@ref(fig:dailydeaths)) we plot the total number of Covid deaths in the US per day, which we get from summing up all state deaths and then differencing the cumulative data.
+In Figure (\@ref(fig:dailydeaths)) we plot the total number of Covid deaths in the US per day, which we get from summing up all state deaths and then differencing the cumulative data to get the daily death cases.
 
 ```{r dataprep}
 library("readr")
@@ -111,7 +113,7 @@ ggplot(data = plot_data, aes(x = time, y = diff_nation_data)) +
 
 We observe very non-smooth data and some negative values (indicating a negative number of Covid deaths per day which is certainly not possible). This phenomenon occurs because, when counting the Covid deaths over time, certain death cases from a particular day may be subtracted due to counters believing they had overcounted on previous days.
 
-To tackle this issue we apply smoothing to our data using Nadarya-Watson kernel regression with a Gaussian kernel and bandwidth 15 (where the days are numerated from 1 to 1194, where 1194 is the total number of days in our data). We apply smoothing to each state separately.
+To tackle this issue we apply smoothing to our data using Nadarya-Watson kernel regression with a Gaussian kernel and bandwidth 15 (where the days are numerated as integers from 1 to 1194, where 1194 is the total number of days in our data). We apply smoothing to each state separately.
 
 In Figure (\@ref(fig:smoothing)), we replicate the same plot as in Figure (\@ref(fig:dailydeaths)) to review our smoothing results.
 
@@ -145,7 +147,7 @@ ggplot(data = plot_data, aes(x = time, y = diff_nation_data)) +
 ```
 The smoothed data already looks better and we got rid of negative values. So from now on we work with the smoothed values for the Covid death numbers. 
 
-A further preprocessing step, to have more comparable death cases between the states, is to divide all observations from a state by its total population on 01.07.2022, taken from [Wikipedia](https://en.wikipedia.org/wiki/List_of_U.S._states_and_territories_by_population). Therefore our data contains now the cumulative number of Covid deaths per capita for each state from 22.01.2020 until 29.04.2023, displayed in Figure (\@ref(fig:normalize)).
+A further preprocessing step, to have more comparable death cases between the states, is to divide all observations from a state by its total population on 01.07.2022, taken from [Wikipedia](https://en.wikipedia.org/wiki/List_of_U.S._states_and_territories_by_population). Therefore, as we work with cumulative numbers, our data contains now the cumulative number of Covid deaths per capita for each state from 22.01.2020 until 29.04.2023, displayed in Figure (\@ref(fig:normalize)).
 
 ```{r normalize, fig.cap="Cumulative Covid deaths per capita by states."}
 # populations by state in the same order as in our data
@@ -179,7 +181,9 @@ ggplot(data_long, aes(x = Day, y = Cases, color = state)) +
 
 ## Registration
 
-Before performing the PCA, we want to align the starting date of the first wave across the states to have a more comparable first wave. As the first Covid wave did not spread out at the same time in each state, we define the individual beginning of the first wave in each state to be the point where we have one death per one million inhabitants in that state. Furthermore, in our analysis we only focus on the first wave and therefore stop 75 days after the beginning of the first wave in each state. In Figure (\@ref(fig:registration)) we verify that we more or less capture the first Covid wave for each state.
+For our PCA, we decide to focus on a shorter time frame than the approximately three years we have in our data. By dedicating our analysis to a shorter time frame, we hope to capture more of the variability in the data by only the first few principal components as our data contains less dimensions in that case. So in our further analysis, we only consider the first Covid wave in the US.
+
+In order to have a more comparable first wave across the different states, we align the starting dates. As the first Covid wave did not spread out at the same time in each state, we define the individual beginning of the first wave in each state to be the point where we have one death per one million inhabitants in that state. To capture only the first wave in each state, we only consider the first 75 days after the individual starting dates. In Figure (\@ref(fig:registration)) we verify that we more or less captured the first Covid wave for each state by this procedure.
 
 ```{r registration, fig.height=5, fig.width=10, fig.cap="Covid deaths per capita for all US states during the first 75 days after a state hits the one death per million inhabitants mark the first time. In the right plot the ten states with the highest numbers during the above described period where excluded to better analyze the states with lower numbers."}
 # normalize original data by population and store it in data_per_capita
@@ -242,7 +246,7 @@ In our PCA we will analyze the cumulative death numbers per capita from the data
 first_wave_dat = log(first_wave_dat)
 ```
 
-# PCA
+# Principal Component Analysis {#PCA}
 
 In this section we apply PCA to the data we prepared in the section before, that is the logarithm of the cumulative death numbers per capita during the first Covid wave for each state. In Figure (\@ref(fig:PCA)) we plot the first three principal components as well the percentages of variability retained.
 
@@ -285,7 +289,7 @@ First note that the percentages of variability retained for the first component 
 
 We can interpret the first three principal components as follows.
 
-* The first principal component is all positive and can therefore be seen as the variability in overall cumulative Covid deaths in the first wave.
+* The first principal component is all positive and can therefore be seen as the variability in overall Covid deaths in the first wave.
 * The second principal component contrasts the beginning against the end of the first Covid wave.
 * The third principal component contrasts the beginning and the end of the first wave with the middle (around the peak) of the first wave.
 
@@ -307,7 +311,7 @@ ggarrange(pc_1_der, pc_2_der, pc_3_der, nrow = 1, ncol = 3)
 
 ## Low-Dimensional Plot
 
-In PCA, the low-dimensional plot is the visualization of the data in a reduced dimensional space. In our case, the representation of the data as a linear combination of the first two principal components (which capture already more than 99% of the variability in the data). Furthermore we colorize the observations of our data (states) by the state's Democratic support in the US presidential election in 2020 (the data can be found on [Wikipedia](https://en.wikipedia.org/wiki/2020_United_States_presidential_election)). In Figure (\@ref(fig:lowdimplot)) we plot the low dimensional plot for our data colorized by Democratic support.
+In PCA, the low-dimensional plot is the visualization of the data in a reduced dimensional space. In our case, the representation of the data as a linear combination of the first two principal components (which capture already more than 99% of the variability in the data). Furthermore we colorize the observations of our data (states) by the state's Democratic support in the US presidential election in 2020 (the data can be found on [Wikipedia](https://en.wikipedia.org/wiki/2020_United_States_presidential_election)). In Figure (\@ref(fig:lowdimplot)) we examine the low dimensional plot of our PCA colorized by Democratic support.
 
 ```{r lowdimplot, fig.cap="Low-dimensional plot of the first two principal components of the data containing the first Covid wave in the US, colorized by Democratic support in the 2020's US presidential eleciction."}
 # calculate scores
@@ -380,4 +384,4 @@ By colorizing the low-dimensional plot of our PCA we detect some grouping in the
 
 # Conclusion
 
-In this report we analyzed data containing the cumulative number of deaths during Covid in the United States, and applied PCA to the first wave of the pandemic. To bring the first Covid wave, that behaved differently in each state, on the same scale we used registration by defining an individual starting point of the first wave in each state. After that, we kept the data containing the next 75 days after the registered starting point in each state to capture the first wave. After performing PCA, we found that our first two principal components captured almost all variability of the data, which makes it very interesting to look at the low-dimensional plot that represents the data in the first two principal components. In this plot, by colorizing the states with the Democratic support in the 2020 US presidential election, we found a connection between the first Covid wave in the US and the political state ideology. This is an interesting result, but as PCA is just an exploratory tool, a more in depth statistical analysis would be needed to draw definitive conclusions.
+In this report we analyzed data containing the cumulative number of deaths during Covid in the United States, and applied PCA to the first wave of the pandemic. To bring the first Covid wave, that behaved differently in each state, on the same scale we used registration by defining an individual starting point of the first wave in each state. After that, we kept the data containing the next 75 days after the registered starting point in each state to capture the first wave. Once we performed the PCA, we found that our first two principal components captured almost all variability of the data, which makes it very interesting to look at the low-dimensional plot that represents the data in the first two principal components. In this plot, by colorizing the states with the Democratic support in the 2020 US presidential election, we found a connection between the first Covid wave in the US and the political state ideology. This is an interesting result, but as PCA is just an exploratory tool, a more in depth statistical analysis would be needed to draw definitive conclusions.
