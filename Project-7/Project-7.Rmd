@@ -1,9 +1,15 @@
 ---
 title: "Project-7"
 author: "Hannes Gubler"
-date: "`r Sys.Date()`"
-output: html_document
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: 
+  bookdown::html_document2:
+    toc: true
 ---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE)
+```
 
 # Introduction
 
@@ -24,25 +30,116 @@ To statistically test the Null Hypothesis vs the Alternative Hypothesis ($H_0$ v
 
 In order to calculate the number of subjects needed, we also need to specify the desired *power level* of the test. The power level is the probability of correctly rejecting the Null Hypothesis $H_0$ when $H_1$ is true. In other words it measures the ability of our statistical test to detect a lower blood glucose in group 1 than in group 2. We choose our power level to be 80% (usual value for clinical dietitians), which means that there is an 80% chance of correctly detecting a lower blood glucose in group 1 than in group 1.
 
-Our statistical test will calculate a *p-value*. If the p-value is lower than our significance level of 5%, we reject the Null Hypothesis $H_0$ to conclude $H_1$.
-
 # Statistical Test
 
 To statistically test $H_0$ vs $H_1$, we use the so called *two sample t-test*, which is the usual test to determine whether two population means are equal or not. When applying the two sample t-test to our data, we have the following assumptions.
 
-* The observations (subjects) from group 1 should be independent to the observations from group 2.
-* The observations from group 1 should have approximately the same variance as the observations from group 2. The variance in a group describes how spread out the set of blood glucose number is.
-* The individuals have been assigned randomly to group 1 or group 2.
+1. The observations (subjects) from group 1 should be independent to the observations from group 2.
+2. The observations from group 1 should have approximately the same *standard deviation* as the observations from group 2. The standard deviation in a group describes how spread out the set of blood glucose numbers is. In our case, we assume the standard deviation in both groups to be 15 mg/dl (a typical value for the standard deviation in blood glucose).
+3. The individuals have been assigned randomly to group 1 or group 2.
 
-The last assumption is a little bit more technical: We assume that the data is approximately *normal distributed*. It refers to a specific shape of the data when we plot it on a graph. If the data is normally distributed, most of the datapoints concentrated around the middle. It turns out that many different kinds of data are normal distributed.
+The fourth assumption is a little bit more technical: We assume that the data is approximately *normal distributed*. It refers to a specific shape of the data when we plot it on a graph. If the data is normal distributed, most of the datapoints are concentrated around the middle. It turns out that many different kinds of data are normal distributed.
 
-
-```{r samplesize, echo = FALSE}
-library(pwr)
+```{r samplesize}
+library("pwr")
 n = pwr.t.test(d = - 10 / 15, sig.level = 0.05, power = 0.8, type = "two.sample", 
            alternative = "less")
 n_round = ceiling(n$n) # round to the next higher integer
-print(n_round)
+# print(n_round)
 ```
--> Need 29 samples in each group.
 
+So when we take the significance level 0.05, a power level of 80% and a standard deviation of 15 mg/dl, we can calculate that we need 29 number of subjects in each group (group 1 and group 2).
+
+Note that however if we change the standard deviation of the blood glucose, our result will change. As a higher standard deviation means that our datapoints are more spread out, we need a larger number of subjects in our groups if we keep the same significance level and power level.
+
+The same goes for the significance level. If we want to lower the significance level (the probability of rejecting the Null Hypothesis $H_0$ when it is actually true), we need more subjects if we keep the same power level and standard deviation.
+
+Similarly if we want to use a higher power level (the probability of correctly rejecting the Null Hypothesis $H_0$ when $H_1$ is true), we need more subjects if we keep the same significance level and standard deviation.
+
+Therefore in Figure (\@ref(fig:samplesizeplot)) we compare different scenarios of standard deviations, significant levels and power levels.
+
+```{r samplesizeplot, results='hide', fig.width=9, fig.height=5.5, fig.cap="Number of subjects needed per group (y-axis) in scenarios of different standard deviations, power levels and significance levels."}
+library("ggplot2")
+library("tidyr")
+library("ggpubr")
+k = 20
+alpha = c(0.01, 0.05, 0.1)
+l = length(alpha)
+sd = seq(from = 14, to = 16, length= k)
+samplesizes_70 = matrix(nrow = k, ncol = l) 
+samplesizes_80 = matrix(nrow = k, ncol = l) 
+samplesizes_90 = matrix(nrow = k, ncol = l) 
+samplesizes_95 = matrix(nrow = k, ncol = l) 
+for (j in 1:l) {
+  for (i in 1:k) {
+    n_70 = pwr.t.test(d = - 10 / sd[i], sig.level = alpha[j], power = 0.7, type = "two.sample", 
+             alternative = "less")
+    n_80 = pwr.t.test(d = - 10 / sd[i], sig.level = alpha[j], power = 0.8, type = "two.sample", 
+             alternative = "less")
+    n_90 = pwr.t.test(d = - 10 / sd[i], sig.level = alpha[j], power = 0.9, type = "two.sample", 
+             alternative = "less")
+    n_95 = pwr.t.test(d = - 10 / sd[i], sig.level = alpha[j], power = 0.95, type = "two.sample", 
+             alternative = "less")
+    samplesizes_70[i, j] = ceiling(n_70$n)
+    samplesizes_80[i, j] = ceiling(n_80$n)
+    samplesizes_90[i, j] = ceiling(n_90$n)
+    samplesizes_95[i, j] = ceiling(n_95$n)
+  }
+}
+# create plot dataframes for each power level
+plot_data_70 = as.data.frame(samplesizes_70)
+names(plot_data_70) = c("0.01", "0.05", "0.1")
+plot_data_70$x = sd # add x-axis
+plotdata_long_70 <- plot_data_70 %>% # Reshape the data from wide to long format
+  gather(key = "column", value = "value", -x)
+
+plot_data_80 = as.data.frame(samplesizes_80)
+names(plot_data_80) = c("0.01", "0.05", "0.1")
+plot_data_80$x = sd # add x-axis
+plotdata_long_80 <- plot_data_80 %>% # Reshape the data from wide to long format
+  gather(key = "column", value = "value", -x)
+
+plot_data_90 = as.data.frame(samplesizes_90)
+names(plot_data_90) = c("0.01", "0.05", "0.1")
+plot_data_90$x = sd # add x-axis
+plotdata_long_90 <- plot_data_90 %>% # Reshape the data from wide to long format
+  gather(key = "column", value = "value", -x)
+
+plot_data_95 = as.data.frame(samplesizes_95)
+names(plot_data_95) = c("0.01", "0.05", "0.1")
+plot_data_95$x = sd # add x-axis
+plotdata_long_95 <- plot_data_95 %>% # Reshape the data from wide to long format
+  gather(key = "column", value = "value", -x)
+
+
+# Plotting for each power level
+plot_70 = ggplot(plotdata_long_70, aes(x = x, y = value, color = factor(column))) +
+  geom_line() +
+  labs(x = "standard deviation", y = "subjects needed", color = "significance level") +
+  ggtitle("Power Level: 70")
+  scale_color_discrete(labels = c("0.01", "0.05", "0.1"))  # Customize the legend labels 
+  
+plot_80 = ggplot(plotdata_long_80, aes(x = x, y = value, color = factor(column))) +
+  geom_line() +
+  labs(x = "standard deviation", y = "subjects needed", color = "significance level") +
+  ggtitle("Power Level: 80")
+  scale_color_discrete(labels = c("0.01", "0.05", "0.1"))  # Customize the legend labels 
+
+plot_90 = ggplot(plotdata_long_90, aes(x = x, y = value, color = factor(column))) +
+  geom_line() +
+  labs(x = "standard deviation", y = "subjects needed", color = "significance level") +
+  ggtitle("Power Level: 90")
+  scale_color_discrete(labels = c("0.01", "0.05", "0.1"))  # Customize the legend labels 
+  
+plot_95 = ggplot(plotdata_long_95, aes(x = x, y = value, color = factor(column))) +
+  geom_line() +
+  labs(x = "standard deviation", y = "subjects needed", color = "significance level") +
+  ggtitle("Power Level: 95")
+  scale_color_discrete(labels = c("0.01", "0.05", "0.1"))  # Customize the legend labels 
+  
+ggarrange(plot_70, plot_80, plot_90, plot_95, nrow = 2, ncol = 2, common.legend = TRUE)
+```
+
+# Conclusion
+
+In this report we showed that, when using a typical standard deviation of blood glucose of 15 mg/dl and the by clinical dietitians widely used significance level of 5% and power level of 80%, we need 29 subjects per group to test the Null Hypothesis $H_0$ vs the Alternative Hypothesis $H_1$. However if we change those standard values for standard deviations, significance level and power level, the number of subjects needed per group changes as seen in Figure (\@ref(fig:samplesizeplot)).
