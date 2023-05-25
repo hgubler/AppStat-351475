@@ -13,7 +13,7 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 
 # Introduction
 
-In this report, the goal is to assist and explain the clinical dietitian to determine the required sample size for her experiment. The request is the following.
+In this report, the goal is to assist and explain a clinical dietitian to determine the required sample size for her experiment. The request is the following.
 
 *A clinical dietitian wants to compare two different diets, A and B, for diabetic patients. She hypothesizes that diet A (Group 1) will be better than diet B (Group 2), in terms of lower blood glucose. She plans to get a random sample of diabetic patients and randomly assign them to one of the two diets. At the end of the experiment, which lasts 6 weeks, a fasting blood glucose test will be conducted on each patient. She also expects that the average difference in blood glucose measure between the two groups will be about 10 mg/dl. The dietitian wants to know the number of subjects needed in each group assuming equal sized groups.*
 
@@ -22,20 +22,20 @@ The hypothesis of the dietitian can be formulated as follows.
 * $H_0$ (Null Hypothesis): There is no difference in blood glucose level between group A and group B.
 * $H_1$ (Alternative Hypothesis): Diet A will be better than diet B (in terms of lower blood glucose).
 
-Our statistical test will either reject $H_0$ (and therefore assume that $H_1$ is true) or not reject $H_0$
+Our statistical test will either reject $H_0$ (and therefore conclude $H_1$) or not reject $H_0$.
 
 # Technical Terms
 
 To statistically test the Null Hypothesis vs the Alternative Hypothesis ($H_0$ vs $H_1$) we need to specify the *significance level*. The significance level is used to determine how strong the evidence needs to be in order to reject the Null Hypothesis $H_0$ and therefore conclude the Alternative Hypothesis $H_1$. It represents the probability of rejecting $H_0$ when it is actually true. If we decrease the significance level, it becomes more difficult to reject $H_0$. Clinical dietitians usually consider a significance level of 5%, therefore we set our significance level to 5%.
 
-In order to calculate the number of subjects needed, we also need to specify the desired *power level* of the test. The power level is the probability of correctly rejecting the Null Hypothesis $H_0$ when $H_1$ is true. In other words it measures the ability of our statistical test to detect a lower blood glucose in group 1 than in group 2. We choose our power level to be 80% (usual value for clinical dietitians), which means that there is an 80% chance of correctly detecting a lower blood glucose in group 1 than in group 1.
+In order to calculate the number of subjects needed, we also need to specify the desired *power level* of the test. The power level is the probability of correctly rejecting the Null Hypothesis $H_0$ when $H_1$ is true. In other words, it measures the ability of our statistical test to detect a lower blood glucose in group 1 than in group 2. We choose our power level to be 80% (a usual value for clinical dietitians), which means that if group 1 has a lower blood glucose than group 2, we have an 80% chance of correctly detecting it.
 
 # Statistical Test
 
 To statistically test $H_0$ vs $H_1$, we use the so called *two sample t-test*, which is the usual test to determine whether two population means are equal or not. When applying the two sample t-test to our data, we have the following assumptions.
 
 1. The observations (subjects) from group 1 should be independent to the observations from group 2.
-2. The observations from group 1 should have approximately the same *standard deviation* as the observations from group 2. The standard deviation in a group describes how spread out the set of blood glucose numbers is. In our case, we assume the standard deviation in both groups to be 15 mg/dl (a typical value for the standard deviation in blood glucose).
+2. The blood glucose level of observations from group 1 should have approximately the same *standard deviation* as in group 2. The standard deviation in a group describes how spread out the set of blood glucose numbers from its subjects is. In our case, we assume the standard deviation in both groups to be 15 mg/dl (a typical value for the standard deviation in blood glucose).
 3. The individuals have been assigned randomly to group 1 or group 2.
 
 The fourth assumption is a little bit more technical: We assume that the data is approximately *normal distributed*. It refers to a specific shape of the data when we plot it on a graph. If the data is normal distributed, most of the datapoints are concentrated around the middle. It turns out that many different kinds of data are normal distributed.
@@ -48,13 +48,13 @@ n_round = ceiling(n$n) # round to the next higher integer
 # print(n_round)
 ```
 
-So when we take the significance level 0.05, a power level of 80% and a standard deviation of 15 mg/dl, we can calculate that we need 29 number of subjects in each group (group 1 and group 2).
+So when we take the significance level 0.05, a power level of 80% and a standard deviation of 15 mg/dl, we calculate that we need 29 number of subjects in each group (group 1 and group 2).
 
-Note that however if we change the standard deviation of the blood glucose, our result will change. As a higher standard deviation means that our datapoints are more spread out, we need a larger number of subjects in our groups if we keep the same significance level and power level.
+Note that however if we change the standard deviation of the blood glucose, our result will change. As a higher standard deviation means that the blood glucose levels are more spread out, we need a larger number of subjects to determine a difference in means in our groups, provided we keep the same significance level and power level.
 
-The same goes for the significance level. If we want to lower the significance level (the probability of rejecting the Null Hypothesis $H_0$ when it is actually true), we need more subjects if we keep the same power level and standard deviation.
+The same goes for the significance level. If we want to lower the significance level (the probability of rejecting the Null Hypothesis $H_0$ when it is actually true), we need more subjects provided we keep the same power level and standard deviation.
 
-Similarly if we want to use a higher power level (the probability of correctly rejecting the Null Hypothesis $H_0$ when $H_1$ is true), we need more subjects if we keep the same significance level and standard deviation.
+Similarly, if we want to use a higher power level (the probability of correctly rejecting the Null Hypothesis $H_0$ when $H_1$ is true), we need more subjects provided we keep the same significance level and standard deviation.
 
 Therefore in Figure (\@ref(fig:samplesizeplot)) we compare different scenarios of standard deviations, significant levels and power levels.
 
@@ -142,4 +142,4 @@ ggarrange(plot_70, plot_80, plot_90, plot_95, nrow = 2, ncol = 2, common.legend 
 
 # Conclusion
 
-In this report we showed that, when using a typical standard deviation of blood glucose of 15 mg/dl and the by clinical dietitians widely used significance level of 5% and power level of 80%, we need 29 subjects per group to test the Null Hypothesis $H_0$ vs the Alternative Hypothesis $H_1$. However if we change those standard values for standard deviations, significance level and power level, the number of subjects needed per group changes as seen in Figure (\@ref(fig:samplesizeplot)).
+In this report we showed that, when using a typical standard deviation in the blood glucose levels of 15 mg/dl, and the by clinical dietitians widely used significance level of 5% and power level of 80%, we need 29 subjects per group to test the Null Hypothesis $H_0$ vs the Alternative Hypothesis $H_1$. However if we change those commonly used values for standard deviation, significance level and power level, the number of subjects needed per group changes as seen in Figure (\@ref(fig:samplesizeplot)).
