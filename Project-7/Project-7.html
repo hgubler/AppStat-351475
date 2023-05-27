@@ -338,7 +338,7 @@ display: none;
 
 <h1 class="title toc-ignore">Project-7</h1>
 <h4 class="author">Hannes Gubler</h4>
-<h4 class="date">24 May, 2023</h4>
+<h4 class="date">27 May, 2023</h4>
 
 </div>
 
@@ -353,30 +353,30 @@ display: none;
 
 <div id="introduction" class="section level1" number="1">
 <h1><span class="header-section-number">1</span> Introduction</h1>
-<p>In this report, the goal is to assist and explain a clinical dietitian to determine the required sample size for her experiment. The request is the following.</p>
+<p>In this report, the goal is to assist and explain a clinical dietitian how to determine the required sample size for her experiment. The request is the following.</p>
 <p><em>A clinical dietitian wants to compare two different diets, A and B, for diabetic patients. She hypothesizes that diet A (Group 1) will be better than diet B (Group 2), in terms of lower blood glucose. She plans to get a random sample of diabetic patients and randomly assign them to one of the two diets. At the end of the experiment, which lasts 6 weeks, a fasting blood glucose test will be conducted on each patient. She also expects that the average difference in blood glucose measure between the two groups will be about 10 mg/dl. The dietitian wants to know the number of subjects needed in each group assuming equal sized groups.</em></p>
-<p>The hypothesis of the dietitian can be formulated as follows.</p>
+<p>The hypothesis of the dietitian can be formulated as follows (to statistically test whether diet A is better than diet B).</p>
 <ul>
 <li><span class="math inline">\(H_0\)</span> (Null Hypothesis): There is no difference in blood glucose level between group A and group B.</li>
 <li><span class="math inline">\(H_1\)</span> (Alternative Hypothesis): Diet A will be better than diet B (in terms of lower blood glucose).</li>
 </ul>
-<p>Our statistical test will either reject <span class="math inline">\(H_0\)</span> (and therefore conclude <span class="math inline">\(H_1\)</span>) or not reject <span class="math inline">\(H_0\)</span>.</p>
+<p>Our statistical test will either reject <span class="math inline">\(H_0\)</span> (and therefore conclude <span class="math inline">\(H_1\)</span>) or not reject <span class="math inline">\(H_0\)</span>. So if we want to conclude that diet A is better than diet B, we want to reject <span class="math inline">\(H_0\)</span>.</p>
 </div>
 <div id="technical-terms" class="section level1" number="2">
 <h1><span class="header-section-number">2</span> Technical Terms</h1>
-<p>To statistically test the Null Hypothesis vs the Alternative Hypothesis (<span class="math inline">\(H_0\)</span> vs <span class="math inline">\(H_1\)</span>) we need to specify the <em>significance level</em>. The significance level is used to determine how strong the evidence needs to be in order to reject the Null Hypothesis <span class="math inline">\(H_0\)</span> and therefore conclude the Alternative Hypothesis <span class="math inline">\(H_1\)</span>. It represents the probability of rejecting <span class="math inline">\(H_0\)</span> when it is actually true. If we decrease the significance level, it becomes more difficult to reject <span class="math inline">\(H_0\)</span>. Clinical dietitians usually consider a significance level of 5%, therefore we set our significance level to 5%.</p>
+<p>To statistically test the Null Hypothesis vs the Alternative Hypothesis (<span class="math inline">\(H_0\)</span> vs <span class="math inline">\(H_1\)</span>) we need to specify the <em>significance level</em>. The significance level is used to determine how strong the evidence against <span class="math inline">\(H_0\)</span> needs to be in order to reject the Null Hypothesis <span class="math inline">\(H_0\)</span> and therefore conclude the Alternative Hypothesis <span class="math inline">\(H_1\)</span>. It represents the probability of rejecting <span class="math inline">\(H_0\)</span> when it is actually true. If we decrease the significance level, it becomes more difficult to reject <span class="math inline">\(H_0\)</span>. Clinical dietitians usually consider a significance level of 5%, therefore we set our significance level to 5%.</p>
 <p>In order to calculate the number of subjects needed, we also need to specify the desired <em>power level</em> of the test. The power level is the probability of correctly rejecting the Null Hypothesis <span class="math inline">\(H_0\)</span> when <span class="math inline">\(H_1\)</span> is true. In other words, it measures the ability of our statistical test to detect a lower blood glucose in group 1 than in group 2. We choose our power level to be 80% (a usual value for clinical dietitians), which means that if group 1 has a lower blood glucose than group 2, we have an 80% chance of correctly detecting it.</p>
 </div>
 <div id="statistical-test" class="section level1" number="3">
 <h1><span class="header-section-number">3</span> Statistical Test</h1>
-<p>To statistically test <span class="math inline">\(H_0\)</span> vs <span class="math inline">\(H_1\)</span>, we use the so called <em>two sample t-test</em>, which is the usual test to determine whether two population means are equal or not. When applying the two sample t-test to our data, we have the following assumptions.</p>
+<p>To statistically test <span class="math inline">\(H_0\)</span> vs <span class="math inline">\(H_1\)</span>, we use the so called <em>two sample t-test</em>, which is the usual test to determine whether two population means are equal or not. When applying the two sample t-test to our data, we have the following assumptions (that need to be satisfied in order for our test to work).</p>
 <ol style="list-style-type: decimal">
 <li>The observations (subjects) from group 1 should be independent to the observations from group 2.</li>
 <li>The blood glucose level of observations from group 1 should have approximately the same <em>standard deviation</em> as in group 2. The standard deviation in a group describes how spread out the set of blood glucose numbers from its subjects is. In our case, we assume the standard deviation in both groups to be 15 mg/dl (a typical value for the standard deviation in blood glucose).</li>
-<li>The individuals have been assigned randomly to group 1 or group 2.</li>
+<li>The individuals have been assigned randomly to either group 1 or group 2.</li>
 </ol>
 <p>The fourth assumption is a little bit more technical: We assume that the data is approximately <em>normal distributed</em>. It refers to a specific shape of the data when we plot it on a graph. If the data is normal distributed, most of the datapoints are concentrated around the middle. It turns out that many different kinds of data are normal distributed.</p>
-<p>So when we take the significance level 0.05, a power level of 80% and a standard deviation of 15 mg/dl, we calculate that we need 29 number of subjects in each group (group 1 and group 2).</p>
+<p>So when we take the significance level 0.05, a power level of 80% and a standard deviation of 15 mg/dl, we calculate that we need 29 subjects in each group (group 1 and group 2) for our test.</p>
 <p>Note that however if we change the standard deviation of the blood glucose, our result will change. As a higher standard deviation means that the blood glucose levels are more spread out, we need a larger number of subjects to determine a difference in means in our groups, provided we keep the same significance level and power level.</p>
 <p>The same goes for the significance level. If we want to lower the significance level (the probability of rejecting the Null Hypothesis <span class="math inline">\(H_0\)</span> when it is actually true), we need more subjects provided we keep the same power level and standard deviation.</p>
 <p>Similarly, if we want to use a higher power level (the probability of correctly rejecting the Null Hypothesis <span class="math inline">\(H_0\)</span> when <span class="math inline">\(H_1\)</span> is true), we need more subjects provided we keep the same significance level and standard deviation.</p>
