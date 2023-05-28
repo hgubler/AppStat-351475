@@ -250,7 +250,7 @@ first_wave_dat = log(first_wave_dat)
 
 In this section we apply PCA to the data we prepared in the section before, that is the logarithm of the cumulative death numbers per capita during the first Covid wave for each state. In Figure (\@ref(fig:PCA)) we plot the first three principal components as well the percentages of variability retained.
 
-```{r PCA, fig.width=10, fig.height=3.3, fig.cap="First three principal components of logged cumulative death numbers per capita during the first wave of Covid for each state as observations."}
+```{r PCA, fig.width=10, fig.height=3.3, fig.cap="First three principal components of logged cumulative death numbers per capita during the first wave of Covid (where one state is one observation)."}
 svd_mat = first_wave_dat
 # Center matrix by columns
 mu = colMeans(svd_mat)

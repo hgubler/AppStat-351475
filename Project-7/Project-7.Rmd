@@ -56,7 +56,7 @@ The same goes for the significance level. If we want to lower the significance l
 
 Similarly, if we want to use a higher power level (the probability of correctly rejecting the Null Hypothesis $H_0$ when $H_1$ is true), we need more subjects provided we keep the same significance level and standard deviation.
 
-Therefore in Figure (\@ref(fig:samplesizeplot)) we compare different scenarios of standard deviations, significant levels and power levels.
+Due to the above effects, in Figure (\@ref(fig:samplesizeplot)) we compare different scenarios of standard deviations, significant levels and power levels.
 
 ```{r samplesizeplot, results='hide', fig.width=9, fig.height=5.5, fig.cap="Number of subjects needed per group (y-axis) in scenarios of different standard deviations, power levels and significance levels."}
 library("ggplot2")
