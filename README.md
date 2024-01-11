@@ -1,6 +1,6 @@
 # Applied Statistics Course Repository
 
-This repository contains the projects completed during the Applied Statistics course. Each project focuses on different aspects of statistics.
+This repository contains the projects I've completed during the Applied Statistics course. Each project focuses on different aspects of statistics.
 
 ## Project Descriptions
 
@@ -11,3 +11,4 @@ This repository contains the projects completed during the Applied Statistics co
 5. Project-5: Climate Change (Time Series Analysis)
 6. Project-6: Covid in the US (Principal Component Analysis)
 7. Project-7: Diet Comparision (Statistical Consulting)
+
